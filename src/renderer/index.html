@@ -388,6 +388,52 @@
     .toolbar .ai-btn:hover {
       background: #1a7f64;
     }
+
+    /* Context menu */
+    .context-menu {
+      position: fixed;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 150px;
+      z-index: 3000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .context-menu-item:hover {
+      background: var(--accent);
+    }
+
+    /* Language selector */
+    .language-selector {
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      z-index: 2000;
+    }
+
+    .language-selector select {
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Tab dirty indicator */
+    .editor-tab.dirty::after {
+      content: '●';
+      color: var(--accent);
+      margin-left: 4px;
+    }
   </style>
 </head>
 <body>
@@ -415,6 +461,9 @@
 
       <!-- Editor area -->
       <div class="editor-area">
+        <!-- Editor tabs -->
+        <div class="editor-tabs" id="editor-tabs" style="display: none;"></div>
+        
         <!-- Welcome screen -->
         <div class="welcome" id="welcome">
           <h1>OpenDev IDE</h1>
@@ -427,6 +476,22 @@
           <div id="monaco-editor"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Tab context menu -->
+    <div id="tab-context-menu" class="context-menu" style="display: none;">
+      <div class="context-menu-item" data-action="close">关闭 Close</div>
+      <div class="context-menu-item" data-action="close-others">关闭其他 Close Others</div>
+      <div class="context-menu-item" data-action="close-all">关闭全部 Close All</div>
+    </div>
+
+    <!-- Language selector -->
+    <div id="language-selector" class="language-selector" style="display: none;">
+      <select id="lang-select">
+        <option value="en">English</option>
+        <option value="zh-CN">简体中文</option>
+        <option value="zh-TW">繁體中文</option>
+      </select>
     </div>
 
     <!-- Status bar -->
@@ -455,9 +520,31 @@
   <div id="ai-config-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <h3>🤖 配置 AI</h3>
-      <p>请输入 OpenAI API Key:</p>
+      
+      <!-- AI 提供商选择 -->
+      <p>选择 AI 提供商:</p>
+      <select id="ai-provider-select" style="width: 100%; padding: 8px; margin: 10px 0; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic Claude</option>
+        <option value="ollama">Ollama (本地)</option>
+      </select>
+      
+      <!-- 模型选择 -->
+      <p>选择模型:</p>
+      <select id="ai-model-select" style="width: 100%; padding: 8px; margin: 10px 0; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+        <option value="">请先选择提供商</option>
+      </select>
+      
+      <!-- API Key 输入 -->
+      <p>API Key:</p>
       <input type="password" id="api-key-input" placeholder="sk-..." style="width: 100%; padding: 8px; margin: 10px 0;">
-      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+      
+      <!-- Ollama 地址提示 -->
+      <p id="ollama-hint" style="display: none; color: var(--text-secondary); font-size: 12px;">
+        Ollama 地址: localhost:11434 (可在 API Key 中修改)
+      </p>
+      
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
         <button id="ai-config-cancel" style="padding: 6px 12px;">取消</button>
         <button id="ai-config-save" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 3px;">保存</button>
       </div>
@@ -610,11 +697,12 @@
     // Open folder
     async function openFolder() {
       try {
-        const result = await window.electronAPI.openFolder();
+        const result = await window.electronAPI.openFolderDialog();
         if (result) {
           currentFolder = result.folderPath;
           renderFileTree(result.tree);
           showEditor();
+          renderTabs(); // 渲染标签页
           console.log('Folder opened:', currentFolder);
         }
       } catch (error) {
@@ -681,6 +769,7 @@
             }
             
             updateEditor();
+            renderTabs(); // 渲染标签页
             updateFileTreeHighlight(item.path);
           });
         }
@@ -755,9 +844,351 @@
     const aiConfigCancel = document.getElementById('ai-config-cancel');
     const statusAI = document.getElementById('status-ai');
     const btnToolbarAI = document.getElementById('btn-ai');
+    
+    // AI 模型选择
+    const aiProviderSelect = document.getElementById('ai-provider-select');
+    const aiModelSelect = document.getElementById('ai-model-select');
+    const ollamaHint = document.getElementById('ollama-hint');
 
     let aiConfigured = false;
     let aiConversation = [];
+    let currentProvider = 'openai';
+    let currentModel = 'gpt-4';
+
+    // ========== 国际化 (i18n) ==========
+    // 多语言支持：英语、简体中文、繁体中文
+    const translations = {
+      'en': {
+        // 工具栏
+        'openFolder': '📁 Open Folder',
+        'openFile': '📂 Open File',
+        'save': '💾 Save',
+        'newFile': '📄 New File',
+        'ai': '🤖 AI',
+        
+        // 侧边栏
+        'fileExplorer': 'File Explorer',
+        'noFolder': 'Click "Open Folder" to browse project',
+        
+        // 编辑器
+        'noFile': 'No file open',
+        'welcome': 'Welcome to OpenDev IDE',
+        'welcomeDesc': 'AI-Powered Full-Stack Development IDE - Running on OpenClaw',
+        'openProject': '📂 Open Project',
+        
+        // 标签右键菜单
+        'close': 'Close',
+        'closeOthers': 'Close Others',
+        'closeAll': 'Close All',
+        
+        // 状态栏
+        'encoding': 'UTF-8',
+        'language': 'Language',
+        'aiReady': 'AI: Ready',
+        'aiNotConfigured': 'AI: Not Configured',
+        
+        // AI 面板
+        'aiAssistant': '🤖 AI Assistant',
+        'aiPlaceholder': 'Type a message... (Enter to send)',
+        'aiSend': 'Send',
+        'aiConfiguring': 'Configuring AI...',
+        
+        // 对话框
+        'configureAI': '🤖 Configure AI',
+        'apiKeyPlaceholder': 'Enter OpenAI API Key (sk-...)',
+        'cancel': 'Cancel',
+        'save': 'Save'
+      },
+      'zh-CN': {
+        // 工具栏
+        'openFolder': '📁 打开文件夹',
+        'openFile': '📂 打开文件',
+        'save': '💾 保存',
+        'newFile': '📄 新建文件',
+        'ai': '🤖 AI',
+        
+        // 侧边栏
+        'fileExplorer': '文件浏览器',
+        'noFolder': '点击"打开文件夹"浏览项目',
+        
+        // 编辑器
+        'noFile': '未打开文件',
+        'welcome': '欢迎使用 OpenDev IDE',
+        'welcomeDesc': 'AI全栈自动开发IDE - 运行于OpenClaw',
+        'openProject': '📂 打开项目',
+        
+        // 标签右键菜单
+        'close': '关闭',
+        'closeOthers': '关闭其他',
+        'closeAll': '关闭全部',
+        
+        // 状态栏
+        'encoding': 'UTF-8',
+        'language': '语言',
+        'aiReady': 'AI: 已就绪',
+        'aiNotConfigured': 'AI: 未配置',
+        
+        // AI 面板
+        'aiAssistant': '🤖 AI 助手',
+        'aiPlaceholder': '输入消息... (Enter 发送)',
+        'aiSend': '发送',
+        'aiConfiguring': '配置 AI 中...',
+        
+        // 对话框
+        'configureAI': '🤖 配置 AI',
+        'apiKeyPlaceholder': '输入 OpenAI API Key (sk-...)',
+        'cancel': '取消',
+        'save': '保存'
+      },
+      'zh-TW': {
+        // 工具欄
+        'openFolder': '📁 打開文件夾',
+        'openFile': '📂 打開文件',
+        'save': '💾 儲存',
+        'newFile': '📄 新建文件',
+        'ai': '🤖 AI',
+        
+        // 側邊欄
+        'fileExplorer': '文件瀏覽器',
+        'noFolder': '點擊"打開文件夾"瀏覽項目',
+        
+        // 編輯器
+        'noFile': '未打開文件',
+        'welcome': '歡迎使用 OpenDev IDE',
+        'welcomeDesc': 'AI全棧自動開發IDE - 運行於OpenClaw',
+        'openProject': '📂 打開項目',
+        
+        // 標籤右鍵選單
+        'close': '關閉',
+        'closeOthers': '關閉其他',
+        'closeAll': '全部關閉',
+        
+        // 狀態欄
+        'encoding': 'UTF-8',
+        'language': '語言',
+        'aiReady': 'AI: 已就緒',
+        'aiNotConfigured': 'AI: 未配置',
+        
+        // AI 面板
+        'aiAssistant': '🤖 AI 助手',
+        'aiPlaceholder': '輸入訊息... (Enter 發送)',
+        'aiSend': '發送',
+        'aiConfiguring': '配置 AI 中...',
+        
+        // 對話框
+        'configureAI': '🤖 配置 AI',
+        'apiKeyPlaceholder': '輸入 OpenAI API Key (sk-...)',
+        'cancel': '取消',
+        'save': '儲存'
+      }
+    };
+
+    // 当前语言
+    let currentLang = 'zh-CN';
+
+    // 翻译函数
+    function t(key) {
+      return translations[currentLang][key] || translations['zh-CN'][key] || key;
+    }
+
+    // 应用翻译到 UI
+    function applyTranslations() {
+      // 工具栏按钮
+      document.getElementById('btn-open-folder').textContent = t('openFolder');
+      document.getElementById('btn-open').textContent = t('openFile');
+      document.getElementById('btn-save').textContent = t('save');
+      document.getElementById('btn-new').textContent = t('newFile');
+      btnToolbarAI.textContent = t('ai');
+      
+      // 侧边栏标题
+      document.querySelector('.sidebar-header').textContent = t('fileExplorer');
+      
+      // 欢迎页面
+      document.querySelector('#welcome h1').textContent = t('welcome');
+      document.querySelector('#welcome p').textContent = t('welcomeDesc');
+      document.getElementById('btn-welcome-open').textContent = t('openProject');
+      
+      // 状态栏
+      document.getElementById('status-file').textContent = '📄 ' + t('noFile');
+      document.getElementById('status-encoding').textContent = t('encoding');
+      statusAI.textContent = aiConfigured ? t('aiReady') : t('aiNotConfigured');
+      
+      // AI 面板
+      document.querySelector('.ai-panel-header span').textContent = t('aiAssistant');
+      document.getElementById('ai-input').placeholder = t('aiPlaceholder');
+      document.getElementById('ai-send').textContent = t('aiSend');
+      
+      // AI 配置对话框
+      document.querySelector('#ai-config-modal h3').textContent = t('configureAI');
+      document.getElementById('api-key-input').placeholder = t('apiKeyPlaceholder');
+      document.getElementById('ai-config-cancel').textContent = t('cancel');
+      document.getElementById('ai-config-save').textContent = t('save');
+      
+      // 标签右键菜单
+      const contextMenuItems = document.querySelectorAll('.context-menu-item');
+      contextMenuItems[0].textContent = t('close');
+      contextMenuItems[1].textContent = t('closeOthers');
+      contextMenuItems[2].textContent = t('closeAll');
+    }
+
+    // ========== 标签页管理 ==========
+    const editorTabs = document.getElementById('editor-tabs');
+    const tabContextMenu = document.getElementById('tab-context-menu');
+    let contextMenuTabIndex = -1;
+
+    // 渲染标签页
+    function renderTabs() {
+      if (openFiles.length === 0) {
+        editorTabs.style.display = 'none';
+        return;
+      }
+      
+      editorTabs.style.display = 'flex';
+      editorTabs.innerHTML = '';
+      
+      openFiles.forEach((file, index) => {
+        const tab = document.createElement('div');
+        tab.className = 'editor-tab' + (index === activeFileIndex ? ' active' : '');
+        tab.dataset.index = index;
+        
+        // 文件名（带修改标记）
+        const fileName = document.createElement('span');
+        fileName.textContent = file.name;
+        tab.appendChild(fileName);
+        
+        // 关闭按钮
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'close';
+        closeBtn.textContent = '×';
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(index);
+        });
+        tab.appendChild(closeBtn);
+        
+        // 点击切换标签
+        tab.addEventListener('click', () => {
+          activeFileIndex = index;
+          updateEditor();
+          renderTabs();
+        });
+        
+        // 右键菜单
+        tab.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showTabContextMenu(e.clientX, e.clientY, index);
+        });
+        
+        editorTabs.appendChild(tab);
+      });
+    }
+
+    // 关闭标签
+    function closeTab(index) {
+      if (index < 0 || index >= openFiles.length) return;
+      
+      openFiles.splice(index, 1);
+      
+      if (openFiles.length === 0) {
+        activeFileIndex = -1;
+        currentFile = null;
+        if (editor) {
+          editor.setValue('');
+        }
+      } else if (activeFileIndex >= openFiles.length) {
+        activeFileIndex = openFiles.length - 1;
+      }
+      
+      updateEditor();
+      renderTabs();
+    }
+
+    // 关闭其他标签
+    function closeOtherTabs(keepIndex) {
+      if (keepIndex < 0 || keepIndex >= openFiles.length) return;
+      
+      const keepFile = openFiles[keepIndex];
+      openFiles = [keepFile];
+      activeFileIndex = 0;
+      
+      updateEditor();
+      renderTabs();
+    }
+
+    // 关闭所有标签
+    function closeAllTabs() {
+      openFiles = [];
+      activeFileIndex = -1;
+      currentFile = null;
+      
+      if (editor) {
+        editor.setValue('');
+      }
+      
+      renderTabs();
+    }
+
+    // 显示标签右键菜单
+    function showTabContextMenu(x, y, index) {
+      contextMenuTabIndex = index;
+      tabContextMenu.style.display = 'block';
+      tabContextMenu.style.left = x + 'px';
+      tabContextMenu.style.top = y + 'px';
+    }
+
+    // 隐藏右键菜单
+    function hideTabContextMenu() {
+      tabContextMenu.style.display = 'none';
+    }
+
+    // 右键菜单事件
+    document.querySelectorAll('.context-menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.action;
+        if (action === 'close') {
+          closeTab(contextMenuTabIndex);
+        } else if (action === 'close-others') {
+          closeOtherTabs(contextMenuTabIndex);
+        } else if (action === 'close-all') {
+          closeAllTabs();
+        }
+        hideTabContextMenu();
+      });
+    });
+
+    // 点击其他地方隐藏菜单
+    document.addEventListener('click', hideTabContextMenu);
+
+    // 语言选择器
+    const langSelect = document.getElementById('lang-select');
+    langSelect.value = currentLang;
+    langSelect.addEventListener('change', (e) => {
+      currentLang = e.target.value;
+      applyTranslations();
+    });
+
+    // ========== End i18n and tabs ==========
+
+    // 添加语言选择器到工具栏
+    const langSelector = document.createElement('div');
+    langSelector.className = 'language-selector';
+    langSelector.style.display = 'inline-block';
+    langSelector.style.marginLeft = 'auto';
+    langSelector.innerHTML = `
+      <select id="lang-select-toolbar">
+        <option value="en">EN</option>
+        <option value="zh-CN" selected>简</option>
+        <option value="zh-TW">繁</option>
+      </select>
+    `;
+    document.querySelector('.toolbar').appendChild(langSelector);
+    
+    // 语言切换事件
+    document.getElementById('lang-select-toolbar').addEventListener('change', (e) => {
+      currentLang = e.target.value;
+      applyTranslations();
+      document.getElementById('lang-select').value = currentLang;
+    });
 
     // Add AI button to toolbar
     const aiToolbarBtn = document.createElement('button');
@@ -829,24 +1260,80 @@
       aiInput.focus();
     }
 
-    // Save API key
+    // 保存 AI 配置（支持多模型）
     async function saveAPIKey() {
       const apiKey = apiKeyInput.value.trim();
-      if (!apiKey) return;
+      if (!apiKey && currentProvider !== 'ollama') return;
 
       try {
-        const result = await window.electronAPI.ai.setApiKey(apiKey);
-        if (result.success) {
-          aiConfigured = true;
-          statusAI.textContent = '🤖 AI: 已就绪';
-          aiModal.style.display = 'none';
-          apiKeyInput.value = '';
-          showAIPanel();
+        // 设置提供商
+        await window.electronAPI.ai.setProvider(currentProvider);
+        
+        // 设置模型
+        await window.electronAPI.ai.setModel(currentModel);
+        
+        // 设置 API Key
+        await window.electronAPI.ai.setApiKey(apiKey);
+        
+        // 如果是 Ollama，获取本地模型列表
+        if (currentProvider === 'ollama') {
+          const result = await window.electronAPI.ai.fetchOllamaModels();
+          if (result.success && result.models.length > 0) {
+            // 更新模型选择
+            aiModelSelect.innerHTML = '';
+            result.models.forEach(m => {
+              const opt = document.createElement('option');
+              opt.value = m.name;
+              opt.textContent = m.name;
+              aiModelSelect.appendChild(opt);
+            });
+          }
         }
+        
+        aiConfigured = true;
+        statusAI.textContent = `🤖 AI: ${currentProvider}/${currentModel}`;
+        aiModal.style.display = 'none';
+        apiKeyInput.value = '';
+        showAIPanel();
       } catch (e) {
         alert('配置失败: ' + e.message);
       }
     }
+
+    // 更新模型选择下拉框（根据提供商）
+    async function updateModelSelect(provider) {
+      currentProvider = provider;
+      
+      // 显示/隐藏 Ollama 提示
+      ollamaHint.style.display = provider === 'ollama' ? 'block' : 'none';
+      
+      try {
+        const models = await window.electronAPI.ai.getModels(provider);
+        aiModelSelect.innerHTML = '';
+        
+        if (models && models.length > 0) {
+          models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            aiModelSelect.appendChild(opt);
+          });
+          currentModel = models[0];
+        } else {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '无可用模型';
+          aiModelSelect.appendChild(opt);
+        }
+      } catch (e) {
+        console.error('获取模型列表失败:', e);
+      }
+    }
+
+    // 提供商选择变更事件
+    aiProviderSelect.addEventListener('change', (e) => {
+      updateModelSelect(e.target.value);
+    });
 
     // Event listeners
     aiToolbarBtn.addEventListener('click', showAIPanel);

@@ -2,15 +2,20 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
-const { AIService } = require('./ai-service');
+const { AIServiceManager } = require('./ai-providers');
 
-// Disable GPU acceleration to avoid cache warnings
+// 禁用 GPU 加速以避免缓存警告
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('disable-gpu-compositing');
+app.commandLine.appendSwitch('disable-gpu-rasterization');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-dev-shm-usage');
 
-// Initialize AI Service
-const aiService = new AIService();
+// 初始化 AI 服务管理器（多模型支持）
+const aiService = new AIServiceManager();
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -314,51 +319,183 @@ ipcMain.handle('dialog:openFolder', async () => {
 
 log.info('Main process initialized');
 
-// AI Service IPC Handlers
+// ========== AI 服务 IPC 处理器（多模型支持）==========
 
-// Set API Key
+// 设置 API Key
 ipcMain.handle('ai:setApiKey', async (event, apiKey) => {
-  log.info('Setting AI API key...');
+  log.info('设置 AI API Key...');
   aiService.setApiKey(apiKey);
   return { success: true };
 });
 
-// Configure AI Model
+// 设置 AI 提供商
+ipcMain.handle('ai:setProvider', async (event, provider) => {
+  log.info('设置 AI 提供商:', provider);
+  return aiService.setProvider(provider);
+});
+
+// 设置 AI 模型
+ipcMain.handle('ai:setModel', async (event, model) => {
+  log.info('设置 AI 模型:', model);
+  return aiService.setModel(model);
+});
+
+// 配置 AI 参数
 ipcMain.handle('ai:setConfig', async (event, config) => {
-  log.info('Setting AI config:', config);
+  log.info('设置 AI 配置:', config);
   aiService.setConfig(config);
   return { success: true };
 });
 
-// Chat with AI
+// 获取当前 AI 配置
+ipcMain.handle('ai:getConfig', async () => {
+  return aiService.getConfig();
+});
+
+// 获取可用提供商列表
+ipcMain.handle('ai:getProviders', async () => {
+  return aiService.getProviders();
+});
+
+// 获取可用模型列表
+ipcMain.handle('ai:getModels', async (event, providerName) => {
+  return aiService.getModels(providerName);
+});
+
+// 获取所有提供商的模型
+ipcMain.handle('ai:getAllModels', async () => {
+  return aiService.getAllModels();
+});
+
+// 获取 Ollama 本地模型列表
+ipcMain.handle('ai:fetchOllamaModels', async () => {
+  log.info('获取 Ollama 本地模型列表...');
+  try {
+    const models = await aiService.fetchOllamaModels();
+    return { success: true, models };
+  } catch (error) {
+    log.error('获取 Ollama 模型失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 发送对话请求
 ipcMain.handle('ai:chat', async (event, { messages, options }) => {
-  log.info('AI chat request...');
+  log.info('AI 对话请求...');
   try {
     const response = await aiService.chat(messages, options);
-    log.info('AI chat response received');
+    log.info('AI 对话响应接收成功');
     return { success: true, response };
   } catch (error) {
-    log.error('AI chat error:', error);
+    log.error('AI 对话错误:', error);
     return { success: false, error: error.message };
   }
 });
 
-// Simple chat with system + user message
+// 简单对话（系统消息 + 用户消息）
 ipcMain.handle('ai:chatSimple', async (event, { systemMessage, userMessage, options }) => {
-  log.info('AI simple chat request...');
+  log.info('AI 简单对话请求...');
   try {
     const response = await aiService.chatWithSystem(systemMessage, userMessage, options);
-    log.info('AI simple chat response received');
+    log.info('AI 简单对话响应接收成功');
     return { success: true, response };
   } catch (error) {
-    log.error('AI simple chat error:', error);
+    log.error('AI 简单对话错误:', error);
     return { success: false, error: error.message };
   }
 });
 
-// Check if API key is configured
+// 检查 API Key 是否已配置
 ipcMain.handle('ai:isConfigured', async () => {
-  return { configured: !!aiService.apiKey };
+  return { configured: !!aiService.config.apiKey };
 });
 
-log.info('AI Service handlers registered');
+log.info('AI 多模型服务处理器已注册');
+
+// ========== 文件操作 IPC 处理器 ==========
+
+// 新建文件
+ipcMain.handle('fs:createFile', async (event, { dirPath, fileName }) => {
+  log.info('创建新文件:', dirPath, fileName);
+  try {
+    const filePath = path.join(dirPath, fileName);
+    if (fs.existsSync(filePath)) {
+      return { success: false, error: '文件已存在' };
+    }
+    fs.writeFileSync(filePath, '', 'utf-8');
+    log.info('文件创建成功:', filePath);
+    return { success: true, filePath };
+  } catch (error) {
+    log.error('创建文件错误:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 新建文件夹
+ipcMain.handle('fs:createFolder', async (event, { dirPath, folderName }) => {
+  log.info('创建新文件夹:', dirPath, folderName);
+  try {
+    const folderPath = path.join(dirPath, folderName);
+    if (fs.existsSync(folderPath)) {
+      return { success: false, error: '文件夹已存在' };
+    }
+    fs.mkdirSync(folderPath, { recursive: true });
+    log.info('文件夹创建成功:', folderPath);
+    return { success: true, folderPath };
+  } catch (error) {
+    log.error('创建文件夹错误:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 删除文件或文件夹
+ipcMain.handle('fs:delete', async (event, { targetPath }) => {
+  log.info('删除文件/文件夹:', targetPath);
+  try {
+    const stats = fs.statSync(targetPath);
+    if (stats.isDirectory()) {
+      fs.rmdirSync(targetPath, { recursive: true });
+    } else {
+      fs.unlinkSync(targetPath);
+    }
+    log.info('删除成功:', targetPath);
+    return { success: true };
+  } catch (error) {
+    log.error('删除错误:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 重命名文件或文件夹
+ipcMain.handle('fs:rename', async (event, { oldPath, newName }) => {
+  log.info('重命名:', oldPath, '->', newName);
+  try {
+    const dir = path.dirname(oldPath);
+    const newPath = path.join(dir, newName);
+    if (fs.existsSync(newPath)) {
+      return { success: false, error: '目标名称已存在' };
+    }
+    fs.renameSync(oldPath, newPath);
+    log.info('重命名成功:', newPath);
+    return { success: true, newPath };
+  } catch (error) {
+    log.error('重命名错误:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 显示确认对话框（用于删除确认）
+ipcMain.handle('dialog:confirm', async (event, { title, message, detail }) => {
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['取消', '确定'],
+    defaultId: 0,
+    cancelId: 0,
+    title: title || '确认',
+    message: message || '确定要执行此操作吗？',
+    detail: detail || ''
+  });
+  return { confirmed: result.response === 1 };
+});
+
+log.info('文件操作处理器已注册');
