@@ -657,6 +657,230 @@ class PluginInstaller {
       this.fs.rmdirSync(dirPath);
     }
   }
+
+  // ==================== 2.5.3 插件依赖解析 ====================
+
+  /**
+   * 解析插件依赖
+   * @param {object} packageJson 插件的 package.json
+   * @returns {Dependency[]}
+   */
+  parseDependencies(packageJson) {
+    const dependencies = [];
+    
+    // 解析 dependencies
+    if (packageJson.dependencies) {
+      for (const [name, version] of Object.entries(packageJson.dependencies)) {
+        dependencies.push({
+          name,
+          version,
+          type: 'dependency',
+          required: true
+        });
+      }
+    }
+    
+    // 解析 optionalDependencies
+    if (packageJson.optionalDependencies) {
+      for (const [name, version] of Object.entries(packageJson.optionalDependencies)) {
+        dependencies.push({
+          name,
+          version,
+          type: 'optional',
+          required: false
+        });
+      }
+    }
+    
+    // 解析 extensionDependencies (VSCode 扩展依赖)
+    if (packageJson.extensionDependencies) {
+      for (const name of packageJson.extensionDependencies) {
+        dependencies.push({
+          name,
+          version: '*',
+          type: 'extension',
+          required: true
+        });
+      }
+    }
+    
+    return dependencies;
+  }
+
+  /**
+   * 检查依赖是否满足
+   * @param {Dependency[]} dependencies 依赖列表
+   * @param {Array} installedPlugins 已安装的插件
+   * @returns {CheckResult}
+   */
+  checkDependencies(dependencies, installedPlugins) {
+    const satisfied = [];
+    const missing = [];
+    const satisfiedMap = new Map();
+    
+    // 构建已安装插件的 Map
+    for (const plugin of installedPlugins) {
+      satisfiedMap.set(plugin.id, plugin);
+      // 也支持 namespace.name 格式
+      const shortId = plugin.id.split('.').pop();
+      satisfiedMap.set(shortId, plugin);
+    }
+    
+    // 检查每个依赖
+    for (const dep of dependencies) {
+      const installed = satisfiedMap.get(dep.name);
+      
+      if (installed) {
+        // 检查版本是否满足
+        if (this._checkVersion(installed.version, dep.version)) {
+          satisfied.push(dep);
+        } else {
+          missing.push({
+            ...dep,
+            reason: `版本不满足: 需要 ${dep.version}, 当前 ${installed.version}`
+          });
+        }
+      } else {
+        missing.push({
+          ...dep,
+          reason: '未安装'
+        });
+      }
+    }
+    
+    return {
+      satisfied,
+      missing,
+      allSatisfied: missing.length === 0
+    };
+  }
+
+  /**
+   * 获取缺失的依赖
+   * @param {Dependency[]} dependencies 
+   * @param {Array} installedPlugins 
+   * @returns {string[]}
+   */
+  getMissingDependencies(dependencies, installedPlugins) {
+    const result = this.checkDependencies(dependencies, installedPlugins);
+    return result.missing.map(m => m.name);
+  }
+
+  /**
+   * 检查版本是否满足
+   * @param {string} current 当前版本
+   * @param {string} required 所需版本
+   * @returns {boolean}
+   */
+  _checkVersion(current, required) {
+    // 简单版本比较
+    if (required === '*' || required === '') {
+      return true;
+    }
+    
+    // 处理 ^1.0.0 格式
+    if (required.startsWith('^')) {
+      const requiredMajor = required.slice(1).split('.')[0];
+      const currentMajor = current.split('.')[0];
+      return currentMajor === requiredMajor;
+    }
+    
+    // 处理 ~1.0.0 格式
+    if (required.startsWith('~')) {
+      const requiredParts = required.slice(1).split('.');
+      const currentParts = current.split('.');
+      return currentParts[0] === requiredParts[0] && 
+             currentParts[1] === requiredParts[1];
+    }
+    
+    // 精确版本
+    return current === required;
+  }
+
+  // ==================== 2.5.4 插件自动更新检查 ====================
+
+  /**
+   * 检查插件更新
+   * @param {Array} installedPlugins 已安装的插件
+   * @returns {Promise<UpdateInfo[]>}
+   */
+  async checkForUpdates(installedPlugins) {
+    const updates = [];
+    
+    for (const plugin of installedPlugins) {
+      try {
+        const latestVersion = await this.getLatestVersion(plugin.id);
+        const comparison = this.compareVersions(plugin.version, latestVersion);
+        
+        if (comparison === 'update-available') {
+          updates.push({
+            id: plugin.id,
+            currentVersion: plugin.version,
+            latestVersion,
+            updateType: this._getUpdateType(plugin.version, latestVersion)
+          });
+        }
+      } catch (error) {
+        console.warn(`[OpenVSXClient] 检查更新失败: ${plugin.id}`, error.message);
+      }
+    }
+    
+    return updates;
+  }
+
+  /**
+   * 获取最新版本
+   * @param {string} namespace 命名空间
+   * @param {string} name 插件名
+   * @returns {Promise<string>}
+   */
+  async getLatestVersion(extensionId) {
+    const { namespace, name } = this._parseExtensionId(extensionId);
+    
+    try {
+      const ext = await this.getExtension(extensionId);
+      return ext.version || '0.0.0';
+    } catch (error) {
+      console.warn(`[OpenVSXClient] 获取最新版本失败: ${extensionId}`);
+      return '0.0.0';
+    }
+  }
+
+  /**
+   * 比较版本
+   * @param {string} current 当前版本
+   * @param {string} latest 最新版本
+   * @returns {'up-to-date' | 'update-available' | 'regress'}
+   */
+  compareVersions(current, latest) {
+    const currentParts = current.split('.').map(Number);
+    const latestParts = latest.split('.').map(Number);
+    
+    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+      const c = currentParts[i] || 0;
+      const l = latestParts[i] || 0;
+      
+      if (l > c) return 'update-available';
+      if (c > l) return 'regress';
+    }
+    
+    return 'up-to-date';
+  }
+
+  /**
+   * 获取更新类型
+   * @param {string} current 
+   * @param {string} latest 
+   * @returns {'major' | 'minor' | 'patch'}
+   */
+  _getUpdateType(current, latest) {
+    const currentParts = current.split('.').map(Number);
+    const latestParts = latest.split('.').map(Number);
+    
+    if (latestParts[0] > currentParts[0]) return 'major';
+    if (latestParts[1] > currentParts[1]) return 'minor';
+    return 'patch';
+  }
 }
 
 // ==================== 导出 ====================

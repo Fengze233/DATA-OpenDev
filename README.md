@@ -35,9 +35,40 @@
 
 ## 开发阶段
 
-- Phase 1 (4周): MVP - 编辑器 + 基础AI
-- Phase 2 (6周): 插件兼容层
+- ✅ Phase 1 (4周): MVP - 编辑器 + 基础AI
+- ✅ Phase 2 (6周): VSCode 插件兼容层
+- ✅ Phase 2.5 (2周): 插件增强功能
 - Phase 3 (6周): 高级功能
 - Beta (4周): 测试优化
 
-**预计总工期**: ~20周
+**当前版本**: v1.0.0 (Phase 2.5 完成)
+
+---
+
+## 最新功能 (Phase 2 + 2.5)
+
+### 插件系统
+- 📦 插件管理（安装/卸载/启用/停用）
+- 🔌 VSCode API 兼容层
+- 🔍 插件市场搜索（OpenVSX）
+- 💾 插件状态持久化
+- ⚙️ 插件配置存储
+- 🔄 自动更新检查
+
+### AI 模型支持
+- OpenAI (GPT-4/GPT-3.5)
+- Anthropic Claude
+- Ollama (本地模型)
+- Minimax (国际版/CN版)
+- 智谱GLM
+- 阿里通义
+- 百度文心
+
+---
+
+## 技术栈
+
+- **编辑器**: Monaco Editor
+- **前端**: React + TypeScript
+- **桌面**: Electron
+- **AI**: 多模型支持

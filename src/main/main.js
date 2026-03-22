@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
 const { AIServiceManager } = require('./ai-providers');
+const { PluginStateManager } = require('./plugin-state');
+const { PluginConfigManager } = require('./plugin-config');
+const { OpenVSXClient } = require('./openvsx-client');
 
 // ç¦ç”¨ GPU åŠ é€Ÿä»¥é¿å…ç¼“å­˜è­¦å‘Š
 app.disableHardwareAcceleration();
@@ -565,14 +568,14 @@ ipcMain.handle('plugins:deactivate', async (event, pluginId) => {
 
 log.info('ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½');
 
-// ========== ²å¼şÊĞ³¡ËÑË÷ IPC ==========
+// ========== ï¿½ï¿½ï¿½ï¿½Ğ³ï¿½ï¿½ï¿½ï¿½ï¿½ IPC ==========
 const { OpenVSXClient, PluginInstaller } = require('./openvsx-client.js');
 
-// OpenVSX ¿Í»§¶ËÊµÀı
+// OpenVSX ï¿½Í»ï¿½ï¿½ï¿½Êµï¿½ï¿½
 let openvsxClient = null;
 let pluginInstaller = null;
 
-// »ñÈ¡ OpenVSX ¿Í»§¶Ë
+// ï¿½ï¿½È¡ OpenVSX ï¿½Í»ï¿½ï¿½ï¿½
 function getOpenVSXClient() {
   if (!openvsxClient) {
     openvsxClient = new OpenVSXClient();
@@ -580,7 +583,7 @@ function getOpenVSXClient() {
   return openvsxClient;
 }
 
-// »ñÈ¡²å¼ş°²×°Æ÷
+// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½
 function getPluginInstaller() {
   if (!pluginInstaller) {
     const client = getOpenVSXClient();
@@ -590,47 +593,84 @@ function getPluginInstaller() {
   return pluginInstaller;
 }
 
-// ËÑË÷²å¼ş
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 ipcMain.handle('plugins:search', async (event, { query, page = 1 }) => {
   try {
-    log.info('ËÑË÷²å¼ş:', query, 'Ò³:', page);
+    log.info('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:', query, 'Ò³:', page);
     const client = getOpenVSXClient();
     const result = await client.searchExtensions(query, page, 20);
     return { success: true, ...result };
   } catch (error) {
-    log.error('ËÑË÷²å¼şÊ§°Ü:', error);
+    log.error('ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½:', error);
     return { success: false, error: error.message, extensions: [], count: 0 };
   }
 });
 
-// °²×°²å¼ş
+// ï¿½ï¿½×°ï¿½ï¿½ï¿½
 ipcMain.handle('plugins:install', async (event, { namespace, name, version }) => {
   try {
-    log.info('°²×°²å¼ş:', namespace, name, version);
+    log.info('ï¿½ï¿½×°ï¿½ï¿½ï¿½:', namespace, name, version);
     const installer = getPluginInstaller();
     await installer.install(namespace, name, version);
     return { success: true };
   } catch (error) {
-    log.error('°²×°²å¼şÊ§°Ü:', error);
+    log.error('ï¿½ï¿½×°ï¿½ï¿½ï¿½Ê§ï¿½ï¿½:', error);
     return { success: false, error: error.message };
   }
 });
 
-log.info('²å¼şÊĞ³¡ËÑË÷´¦ÀíÆ÷ÒÑ×¢²á');
+log.info('ï¿½ï¿½ï¿½ï¿½Ğ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½');
 
-// Ğ¶ÔØ²å¼ş
+// Ğ¶ï¿½Ø²ï¿½ï¿½
 ipcMain.handle('plugins:uninstall', async (event, pluginId) => {
   try {
-    log.info('Ğ¶ÔØ²å¼ş:', pluginId);
+    log.info('Ğ¶ï¿½Ø²ï¿½ï¿½:', pluginId);
     if (!pluginManager) {
-      return { success: false, error: '²å¼şÏµÍ³Î´³õÊ¼»¯' };
+      return { success: false, error: 'ï¿½ï¿½ï¿½ÏµÍ³Î´ï¿½ï¿½Ê¼ï¿½ï¿½' };
     }
-    // Í£ÓÃ²å¼ş
+    // Í£ï¿½Ã²ï¿½ï¿½
     await pluginManager.deactivatePlugin(pluginId);
-    // TODO: É¾³ı²å¼şÄ¿Â¼
+    // TODO: É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
     return { success: true };
   } catch (error) {
-    log.error('Ğ¶ÔØ²å¼şÊ§°Ü:', error);
+    log.error('Ğ¶ï¿½Ø²ï¿½ï¿½Ê§ï¿½ï¿½:', error);
     return { success: false, error: error.message };
   }
+});
+
+// 2.5 æ’ä»¶çŠ¶æ€å’Œé…ç½® IPC
+let pluginStateManager = null;
+let pluginConfigManager = null;
+
+function initPluginManagers() {
+  const userDataPath = app.getPath('userData');
+  pluginStateManager = new PluginStateManager(userDataPath);
+  pluginConfigManager = new PluginConfigManager(userDataPath);
+}
+
+ipcMain.handle('plugins:getState', async (event, pluginId) => {
+  return pluginStateManager ? pluginStateManager.getState(pluginId) : {enabled: true};
+});
+
+ipcMain.handle('plugins:setState', async (event, {pluginId, state}) => {
+  if (pluginStateManager) {
+    pluginStateManager.setState(pluginId, state);
+    await pluginStateManager.save();
+  }
+  return {success: true};
+});
+
+ipcMain.handle('plugins:getConfig', async (event, pluginId) => {
+  return pluginConfigManager ? pluginConfigManager.getConfig(pluginId) : null;
+});
+
+ipcMain.handle('plugins:setConfig', async (event, {pluginId, config}) => {
+  if (pluginConfigManager) {
+    pluginConfigManager.setConfig(pluginId, config);
+  }
+  return {success: true};
+});
+
+ipcMain.handle('plugins:checkUpdates', async () => {
+  return {success: true, updates: []};
 });
