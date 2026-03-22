@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://api.openai.com https://api.anthropic.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self' https://api.openai.com https://api.anthropic.com">
   <title>OpenDev IDE</title>
   <style>
     * {
@@ -118,6 +118,35 @@
       width: 16px;
       height: 16px;
       display: inline-block;
+      text-align: center;
+    }
+
+    .file-tree .folder > .file-name::before {
+      content: '▶';
+      display: inline-block;
+      margin-right: 4px;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .file-tree .folder.open > .file-name::before {
+      transform: rotate(90deg);
+    }
+
+    .file-tree .folder > .children {
+      display: none;
+      padding-left: 16px;
+    }
+
+    .file-tree .folder.open > .children {
+      display: block;
+    }
+
+    .file-tree .file-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     /* Editor area */
@@ -365,6 +394,7 @@
   <div id="app">
     <!-- Toolbar -->
     <div class="toolbar">
+      <button id="btn-open-folder">📁 打开文件夹</button>
       <button id="btn-open">📂 打开文件</button>
       <button id="btn-save">💾 保存</button>
       <button id="btn-new">📄 新建文件</button>
@@ -435,14 +465,18 @@
   </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <script src="lib/monaco-editor/min/vs/loader.js"></script>
   <script>
     // State
     let currentFile = null;
     let editor = null;
     let monacoLoaded = false;
+    let currentFolder = null;
+    let openFiles = []; // { path, content, language }
+    let activeFileIndex = -1;
 
     // DOM Elements
+    const btnOpenFolder = document.getElementById('btn-open-folder');
     const btnOpen = document.getElementById('btn-open');
     const btnSave = document.getElementById('btn-save');
     const btnNew = document.getElementById('btn-new');
@@ -457,7 +491,7 @@
     function initMonaco() {
       if (monacoLoaded) return;
       
-      require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+      require.config({ paths: { vs: 'lib/monaco-editor/min/vs' } });
       require(['vs/editor/editor.main'], function () {
         monacoLoaded = true;
         
@@ -573,11 +607,137 @@
       updateStatus(null, 'JavaScript');
     }
 
+    // Open folder
+    async function openFolder() {
+      try {
+        const result = await window.electronAPI.openFolder();
+        if (result) {
+          currentFolder = result.folderPath;
+          renderFileTree(result.tree);
+          showEditor();
+          console.log('Folder opened:', currentFolder);
+        }
+      } catch (error) {
+        console.error('Error opening folder:', error);
+      }
+    }
+
+    // Render file tree
+    function renderFileTree(items, container = fileTree) {
+      container.innerHTML = '';
+      
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="file-item" style="color: var(--text-secondary);">文件夹为空</div>';
+        return;
+      }
+      
+      items.forEach(item => {
+        const div = document.createElement('div');
+        
+        if (item.isDirectory) {
+          // Folder
+          div.className = 'folder';
+          div.innerHTML = `<span class="file-name">${item.name}</span><div class="children"></div>`;
+          
+          const childrenContainer = div.querySelector('.children');
+          const nameSpan = div.querySelector('.file-name');
+          
+          nameSpan.addEventListener('click', () => {
+            div.classList.toggle('open');
+          });
+          
+          if (item.children && item.children.length > 0) {
+            renderFileTree(item.children, childrenContainer);
+          }
+        } else {
+          // File
+          div.className = 'file-item file';
+          div.innerHTML = `<span class="file-icon">📄</span><span class="file-name">${item.name}</span>`;
+          
+          div.addEventListener('click', async () => {
+            // 检查文件是否已打开
+            const existingIndex = openFiles.findIndex(f => f.path === item.path);
+            
+            if (existingIndex >= 0) {
+              // 切换到已打开的文件
+              activeFileIndex = existingIndex;
+            } else {
+              // 打开新文件
+              try {
+                const fileResult = await window.electronAPI.readFile(item.path);
+                if (fileResult.success) {
+                  const language = getLanguage(item.path);
+                  openFiles.push({
+                    path: item.path,
+                    content: fileResult.content,
+                    language: language,
+                    name: item.name
+                  });
+                  activeFileIndex = openFiles.length - 1;
+                }
+              } catch (e) {
+                console.error('Error reading file:', e);
+              }
+            }
+            
+            updateEditor();
+            updateFileTreeHighlight(item.path);
+          });
+        }
+        
+        container.appendChild(div);
+      });
+    }
+
+    // Update file tree highlight
+    function updateFileTreeHighlight(activePath) {
+      const items = fileTree.querySelectorAll('.file-item.file');
+      items.forEach(item => {
+        const nameSpan = item.querySelector('.file-name');
+        if (nameSpan && nameSpan.textContent === activePath.split(/[\\/]/).pop()) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    }
+
+    // Update editor with current file
+    function updateEditor() {
+      if (activeFileIndex >= 0 && openFiles[activeFileIndex]) {
+        const file = openFiles[activeFileIndex];
+        currentFile = file.path;
+        
+        if (editor) {
+          monaco.editor.setModelLanguage(editor.getModel(), file.language);
+          editor.setValue(file.content);
+        }
+        
+        updateStatus(file.path, file.language);
+      }
+    }
+
+    // Save current file
+    async function saveCurrentFile() {
+      if (activeFileIndex >= 0 && openFiles[activeFileIndex] && editor) {
+        const file = openFiles[activeFileIndex];
+        file.content = editor.getValue();
+        
+        try {
+          await window.electronAPI.writeFile(file.path, file.content);
+          console.log('File saved:', file.path);
+        } catch (e) {
+          console.error('Error saving file:', e);
+        }
+      }
+    }
+
     // Event listeners
+    btnOpenFolder.addEventListener('click', openFolder);
     btnOpen.addEventListener('click', openFile);
-    btnSave.addEventListener('click', saveFile);
+    btnSave.addEventListener('click', saveCurrentFile);
     btnNew.addEventListener('click', newFile);
-    btnWelcomeOpen.addEventListener('click', openFile);
+    btnWelcomeOpen.addEventListener('click', openFolder);
 
     // Menu events from main process
     window.electronAPI.onMenuOpenFile(() => openFile());

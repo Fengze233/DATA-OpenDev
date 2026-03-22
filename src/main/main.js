@@ -4,6 +4,11 @@ const fs = require('fs');
 const log = require('electron-log');
 const { AIService } = require('./ai-service');
 
+// Disable GPU acceleration to avoid cache warnings
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+
 // Initialize AI Service
 const aiService = new AIService();
 
