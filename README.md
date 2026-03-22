@@ -21,6 +21,7 @@
 - 前端：React + TypeScript
 - 桌面壳：Electron
 - AI：OpenAI API / Claude API / Ollama
+- 规范驱动：spec-kit（GitHub 官方 PRD/Spec 工具）
 
 ## 团队成员（5人）
 
