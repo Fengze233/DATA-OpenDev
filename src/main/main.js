@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const log = require('electron-log');
+const { AIService } = require('./ai-service');
+
+// Initialize AI Service
+const aiService = new AIService();
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -225,7 +229,7 @@ ipcMain.handle('fs:getFileStats', async (event, filePath) => {
   }
 });
 
-// Read directory
+// Read directory (recursive)
 ipcMain.handle('fs:readDir', async (event, dirPath) => {
   log.info('Reading directory:', dirPath);
   try {
@@ -243,4 +247,113 @@ ipcMain.handle('fs:readDir', async (event, dirPath) => {
   }
 });
 
+// Read directory recursively
+function readDirRecursive(dirPath, depth = 0, maxDepth = 10) {
+  if (depth > maxDepth) return [];
+  
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    const result = [];
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      const item = {
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        isFile: entry.isFile(),
+        path: fullPath,
+        children: []
+      };
+      
+      if (entry.isDirectory() && depth < maxDepth) {
+        // Skip node_modules and hidden folders
+        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+          item.children = readDirRecursive(fullPath, depth + 1, maxDepth);
+        }
+      }
+      
+      result.push(item);
+    }
+    
+    // Sort: directories first, then files, alphabetically
+    result.sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    return result;
+  } catch (error) {
+    log.error('Error reading directory recursively:', error);
+    return [];
+  }
+}
+
+// Open folder dialog
+ipcMain.handle('dialog:openFolder', async () => {
+  log.info('Opening folder dialog...');
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    const folderPath = result.filePaths[0];
+    log.info('Folder selected:', folderPath);
+    
+    // Read directory tree
+    const tree = readDirRecursive(folderPath, 0, 3); // Max 3 levels deep
+    return { folderPath, tree };
+  }
+  return null;
+});
+
 log.info('Main process initialized');
+
+// AI Service IPC Handlers
+
+// Set API Key
+ipcMain.handle('ai:setApiKey', async (event, apiKey) => {
+  log.info('Setting AI API key...');
+  aiService.setApiKey(apiKey);
+  return { success: true };
+});
+
+// Configure AI Model
+ipcMain.handle('ai:setConfig', async (event, config) => {
+  log.info('Setting AI config:', config);
+  aiService.setConfig(config);
+  return { success: true };
+});
+
+// Chat with AI
+ipcMain.handle('ai:chat', async (event, { messages, options }) => {
+  log.info('AI chat request...');
+  try {
+    const response = await aiService.chat(messages, options);
+    log.info('AI chat response received');
+    return { success: true, response };
+  } catch (error) {
+    log.error('AI chat error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Simple chat with system + user message
+ipcMain.handle('ai:chatSimple', async (event, { systemMessage, userMessage, options }) => {
+  log.info('AI simple chat request...');
+  try {
+    const response = await aiService.chatWithSystem(systemMessage, userMessage, options);
+    log.info('AI simple chat response received');
+    return { success: true, response };
+  } catch (error) {
+    log.error('AI simple chat error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Check if API key is configured
+ipcMain.handle('ai:isConfigured', async () => {
+  return { configured: !!aiService.apiKey };
+});
+
+log.info('AI Service handlers registered');

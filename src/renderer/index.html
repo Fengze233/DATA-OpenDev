@@ -209,6 +209,156 @@
     .welcome button:hover {
       background: var(--accent-hover);
     }
+
+    /* AI Panel */
+    .ai-panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 350px;
+      height: 100vh;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    .ai-panel-header {
+      padding: 12px 16px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+    }
+
+    .ai-btn-close {
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    .ai-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .ai-message {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .ai-message.user {
+      background: var(--accent);
+      align-self: flex-end;
+      max-width: 90%;
+    }
+
+    .ai-message.assistant {
+      background: var(--bg-tertiary);
+      align-self: flex-start;
+      max-width: 90%;
+    }
+
+    .ai-message.error {
+      background: #5a1d1d;
+      color: #ff8888;
+    }
+
+    .ai-input-area {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .ai-input-area textarea {
+      flex: 1;
+      padding: 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: 4px;
+      resize: none;
+      height: 60px;
+      font-family: inherit;
+    }
+
+    .ai-input-area button {
+      padding: 8px 16px;
+      background: var(--accent);
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .ai-input-area button:hover {
+      background: var(--accent-hover);
+    }
+
+    .ai-input-area button:disabled {
+      background: var(--bg-tertiary);
+      cursor: not-allowed;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      padding: 24px;
+      border-radius: 8px;
+      width: 400px;
+      max-width: 90%;
+    }
+
+    .modal-content h3 {
+      margin-bottom: 12px;
+    }
+
+    .modal-content input {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: 4px;
+    }
+
+    /* Toolbar AI button */
+    .toolbar .ai-btn {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background: #10a37f;
+      border: none;
+    }
+
+    .toolbar .ai-btn:hover {
+      background: #1a7f64;
+    }
   </style>
 </head>
 <body>
@@ -254,7 +404,35 @@
       <div class="status-item" id="status-file">📄 未打开文件</div>
       <div class="status-item" id="status-encoding">UTF-8</div>
       <div class="status-item" id="status-language">JavaScript</div>
+      <div class="status-item" id="status-ai">🤖 AI: 未配置</div>
     </div>
+  </div>
+
+  <!-- AI Chat Panel -->
+  <div id="ai-panel" class="ai-panel" style="display: none;">
+    <div class="ai-panel-header">
+      <span>🤖 AI 助手</span>
+      <button id="ai-close" class="ai-btn-close">×</button>
+    </div>
+    <div class="ai-messages" id="ai-messages"></div>
+    <div class="ai-input-area">
+      <textarea id="ai-input" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"></textarea>
+      <button id="ai-send">发送</button>
+    </div>
+  </div>
+
+  <!-- AI Config Modal -->
+  <div id="ai-config-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3>🤖 配置 AI</h3>
+      <p>请输入 OpenAI API Key:</p>
+      <input type="password" id="api-key-input" placeholder="sk-..." style="width: 100%; padding: 8px; margin: 10px 0;">
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="ai-config-cancel" style="padding: 6px 12px;">取消</button>
+        <button id="ai-config-save" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 3px;">保存</button>
+      </div>
+    </div>
+  </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
@@ -404,6 +582,130 @@
     // Menu events from main process
     window.electronAPI.onMenuOpenFile(() => openFile());
     window.electronAPI.onMenuSaveFile(() => saveFile());
+
+    // AI Chat functionality
+    const aiPanel = document.getElementById('ai-panel');
+    const aiMessages = document.getElementById('ai-messages');
+    const aiInput = document.getElementById('ai-input');
+    const aiSend = document.getElementById('ai-send');
+    const aiClose = document.getElementById('ai-close');
+    const aiModal = document.getElementById('ai-config-modal');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const aiConfigSave = document.getElementById('ai-config-save');
+    const aiConfigCancel = document.getElementById('ai-config-cancel');
+    const statusAI = document.getElementById('status-ai');
+    const btnToolbarAI = document.getElementById('btn-ai');
+
+    let aiConfigured = false;
+    let aiConversation = [];
+
+    // Add AI button to toolbar
+    const aiToolbarBtn = document.createElement('button');
+    aiToolbarBtn.id = 'btn-ai';
+    aiToolbarBtn.textContent = '🤖 AI';
+    aiToolbarBtn.style.background = '#10a37f';
+    document.querySelector('.toolbar').appendChild(aiToolbarBtn);
+
+    // Check AI configuration
+    async function checkAIConfig() {
+      try {
+        const result = await window.electronAPI.ai.isConfigured();
+        aiConfigured = result.configured;
+        statusAI.textContent = aiConfigured ? '🤖 AI: 已就绪' : '🤖 AI: 未配置';
+      } catch (e) {
+        console.error('Failed to check AI config:', e);
+      }
+    }
+
+    // Show AI panel
+    function showAIPanel() {
+      if (!aiConfigured) {
+        aiModal.style.display = 'flex';
+        return;
+      }
+      aiPanel.style.display = 'flex';
+    }
+
+    // Hide AI panel
+    function hideAIPanel() {
+      aiPanel.style.display = 'none';
+    }
+
+    // Add message to chat
+    function addAIMessage(content, role) {
+      const div = document.createElement('div');
+      div.className = `ai-message ${role}`;
+      div.textContent = content;
+      aiMessages.appendChild(div);
+      aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
+
+    // Send message to AI
+    async function sendAIMessage() {
+      const message = aiInput.value.trim();
+      if (!message || !aiConfigured) return;
+
+      // Add user message
+      addAIMessage(message, 'user');
+      aiConversation.push({ role: 'user', content: message });
+      aiInput.value = '';
+      aiSend.disabled = true;
+
+      try {
+        const result = await window.electronAPI.ai.chat(aiConversation);
+        
+        if (result.success) {
+          const response = result.response.content;
+          addAIMessage(response, 'assistant');
+          aiConversation.push({ role: 'assistant', content: response });
+        } else {
+          addAIMessage(`错误: ${result.error}`, 'error');
+        }
+      } catch (e) {
+        addAIMessage(`错误: ${e.message}`, 'error');
+      }
+
+      aiSend.disabled = false;
+      aiInput.focus();
+    }
+
+    // Save API key
+    async function saveAPIKey() {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) return;
+
+      try {
+        const result = await window.electronAPI.ai.setApiKey(apiKey);
+        if (result.success) {
+          aiConfigured = true;
+          statusAI.textContent = '🤖 AI: 已就绪';
+          aiModal.style.display = 'none';
+          apiKeyInput.value = '';
+          showAIPanel();
+        }
+      } catch (e) {
+        alert('配置失败: ' + e.message);
+      }
+    }
+
+    // Event listeners
+    aiToolbarBtn.addEventListener('click', showAIPanel);
+    aiClose.addEventListener('click', hideAIPanel);
+    aiSend.addEventListener('click', sendAIMessage);
+    aiConfigSave.addEventListener('click', saveAPIKey);
+    aiConfigCancel.addEventListener('click', () => {
+      aiModal.style.display = 'none';
+    });
+
+    aiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendAIMessage();
+      }
+    });
+
+    // Initialize AI
+    checkAIConfig();
 
     console.log('OpenDev IDE initialized');
   </script>
