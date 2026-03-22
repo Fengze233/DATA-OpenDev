@@ -22,6 +22,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isConfigured: () => ipcRenderer.invoke('ai:isConfigured')
   },
   
+  // 插件系统
+  plugins: {
+    getList: () => ipcRenderer.invoke('plugins:getList'),
+    activate: (pluginId) => ipcRenderer.invoke('plugins:activate', pluginId),
+    deactivate: (pluginId) => ipcRenderer.invoke('plugins:deactivate', pluginId),
+    uninstall: (pluginId) => ipcRenderer.invoke('plugins:uninstall', pluginId),
+    search: (query, page) => ipcRenderer.invoke('plugins:search', { query, page }),
+    install: (namespace, name, version) => ipcRenderer.invoke('plugins:install', { namespace, name, version })
+  },
+  
   // 菜单事件监听
   onMenuOpenFile: (callback) => ipcRenderer.on('menu-open-file', callback),
   onMenuSaveFile: (callback) => ipcRenderer.on('menu-save-file', callback)

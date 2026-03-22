@@ -587,9 +587,15 @@
       <!-- AI 提供商选择 -->
       <p>选择 AI 提供商:</p>
       <select id="ai-provider-select" style="width: 100%; padding: 8px; margin: 10px 0; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
-        <option value="openai">OpenAI</option>
-        <option value="anthropic">Anthropic Claude</option>
-        <option value="ollama">Ollama (本地)</option>
+        <option value="openai" data-i18n="providerOpenAI">OpenAI</option>
+        <option value="anthropic" data-i18n="providerAnthropic">Anthropic Claude</option>
+        <option value="ollama" data-i18n="providerOllama">Ollama (本地)</option>
+        <option value="minimax" data-i18n="providerMinimax">Minimax (国际版)</option>
+        <option value="minimax_cn" data-i18n="providerMinimaxCN">Minimax (CN版)</option>
+        <option value="zhipu" data-i18n="providerZhipu">智谱GLM</option>
+        <option value="tongyi" data-i18n="providerTongyi">阿里通义</option>
+        <option value="spark" data-i18n="providerSpark">讯飞星火</option>
+        <option value="wenxin" data-i18n="providerWenxin">百度文心</option>
       </select>
       
       <!-- 模型选择 -->
@@ -613,6 +619,51 @@
       </div>
     </div>
   </div>
+  </div>
+
+  <!-- Plugin Settings Modal -->
+  <div id="plugin-settings-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <h3>🔌 插件管理</h3>
+      
+      <!-- Tab 切换 -->
+      <div style="display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px;">
+        <button id="plugin-tab-installed" class="plugin-tab-btn" style="padding: 8px 16px; background: var(--bg-secondary); border: none; border-bottom: 2px solid var(--accent); cursor: pointer;">📦 已安装</button>
+        <button id="plugin-tab-market" class="plugin-tab-btn" style="padding: 8px 16px; background: var(--bg-primary); border: none; cursor: pointer;">🔍 插件市场</button>
+      </div>
+      
+      <!-- 已安装插件列表 -->
+      <div id="plugin-installed-panel">
+        <div id="plugin-list" style="max-height: 400px; overflow-y: auto;">
+          <p style="color: var(--text-secondary);">加载中...</p>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+          <button id="plugin-settings-close" style="padding: 6px 12px;">关闭</button>
+          <button id="plugin-refresh" style="padding: 6px 12px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 3px;">🔄 刷新</button>
+        </div>
+      </div>
+      
+      <!-- 插件市场搜索面板 -->
+      <div id="plugin-market-panel" style="display: none;">
+        <!-- 搜索框 -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input type="text" id="plugin-search-input" placeholder="搜索插件..." style="flex: 1; padding: 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+          <button id="plugin-search-btn" style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 4px;">搜索</button>
+        </div>
+        
+        <!-- 搜索结果 -->
+        <div id="plugin-search-results" style="max-height: 400px; overflow-y: auto;">
+          <p style="color: var(--text-secondary);">输入关键词搜索插件...</p>
+        </div>
+        
+        <!-- 分页 -->
+        <div id="plugin-pagination" style="display: flex; justify-content: center; gap: 8px; margin-top: 16px;">
+          <button id="plugin-prev-page" style="padding: 6px 12px;" disabled>上一页</button>
+          <span id="plugin-page-info" style="padding: 6px 12px;">1 / 1</span>
+          <button id="plugin-next-page" style="padding: 6px 12px;" disabled>下一页</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="lib/monaco-editor/min/vs/loader.js"></script>
@@ -964,7 +1015,46 @@
         'configureAI': '🤖 Configure AI',
         'apiKeyPlaceholder': 'Enter OpenAI API Key (sk-...)',
         'cancel': 'Cancel',
-        'save': 'Save'
+        'save': 'Save',
+        
+        // AI Providers
+        'providerOpenAI': 'OpenAI',
+        'providerAnthropic': 'Anthropic Claude',
+        'providerOllama': 'Ollama (Local)',
+        'providerMinimax': 'Minimax',
+        'providerMinimaxCN': 'Minimax (CN)',
+        'providerZhipu': '智谱GLM',
+        'providerTongyi': '阿里通义',
+        'providerSpark': '讯飞星火',
+        'providerWenxin': '百度文心',
+        
+        // Plugin Settings
+        'pluginSettings': '🔌 Plugin Settings',
+        'pluginList': 'Plugins',
+        'pluginLoading': 'Loading...',
+        'pluginNoPlugins': 'No plugins installed',
+        'pluginEnabled': 'Enabled',
+        'pluginDisabled': 'Disabled',
+        'pluginEnable': 'Enable',
+        'pluginDisable': 'Disable',
+        'pluginRefresh': 'Refresh',
+        'pluginClose': 'Close',
+        'pluginUninstall': 'Uninstall',
+        
+        // Plugin Market
+        'pluginTabInstalled': '📦 Installed',
+        'pluginTabMarket': '🔍 Marketplace',
+        'pluginSearchPlaceholder': 'Search plugins...',
+        'pluginSearch': 'Search',
+        'pluginInstall': 'Install',
+        'pluginUninstall': 'Uninstall',
+        'pluginInstalling': 'Installing...',
+        'pluginNoResults': 'No results found',
+        'pluginSearchTip': 'Enter keywords to search plugins...',
+        'pluginDownloads': 'downloads',
+        'pluginPrevPage': 'Prev',
+        'pluginNextPage': 'Next',
+        'pluginPage': 'Page'
       },
       'zh-CN': {
         // 工具栏
@@ -1005,7 +1095,46 @@
         'configureAI': '🤖 配置 AI',
         'apiKeyPlaceholder': '输入 OpenAI API Key (sk-...)',
         'cancel': '取消',
-        'save': '保存'
+        'save': '保存',
+        
+        // AI Providers
+        'providerOpenAI': 'OpenAI',
+        'providerAnthropic': 'Anthropic Claude',
+        'providerOllama': 'Ollama (本地)',
+        'providerMinimax': 'Minimax (国际版)',
+        'providerMinimaxCN': 'Minimax (CN版)',
+        'providerZhipu': '智谱GLM',
+        'providerTongyi': '阿里通义',
+        'providerSpark': '讯飞星火',
+        'providerWenxin': '百度文心',
+        
+        // 插件设置
+        'pluginSettings': '🔌 插件设置',
+        'pluginList': '插件列表',
+        'pluginLoading': '加载中...',
+        'pluginNoPlugins': '暂无插件',
+        'pluginEnabled': '已启用',
+        'pluginDisabled': '已停用',
+        'pluginEnable': '启用',
+        'pluginDisable': '停用',
+        'pluginRefresh': '🔄 刷新',
+        'pluginClose': '关闭',
+        'pluginUninstall': '卸载',
+        
+        // 插件市场
+        'pluginTabInstalled': '📦 已安装',
+        'pluginTabMarket': '🔍 插件市场',
+        'pluginSearchPlaceholder': '搜索插件...',
+        'pluginSearch': '搜索',
+        'pluginInstall': '安装',
+        'pluginUninstall': '卸载',
+        'pluginInstalling': '安装中...',
+        'pluginNoResults': '未找到结果',
+        'pluginSearchTip': '输入关键词搜索插件...',
+        'pluginDownloads': '次下载',
+        'pluginPrevPage': '上一页',
+        'pluginNextPage': '下一页',
+        'pluginPage': '第'
       },
       'zh-TW': {
         // 工具欄
@@ -1046,7 +1175,46 @@
         'configureAI': '🤖 配置 AI',
         'apiKeyPlaceholder': '輸入 OpenAI API Key (sk-...)',
         'cancel': '取消',
-        'save': '儲存'
+        'save': '儲存',
+        
+        // AI Providers
+        'providerOpenAI': 'OpenAI',
+        'providerAnthropic': 'Anthropic Claude',
+        'providerOllama': 'Ollama (本地)',
+        'providerMinimax': 'Minimax (國際版)',
+        'providerMinimaxCN': 'Minimax (CN版)',
+        'providerZhipu': '智譜GLM',
+        'providerTongyi': '阿里通義',
+        'providerSpark': '訊飛星火',
+        'providerWenxin': '百度文心',
+        
+        // 插件設置
+        'pluginSettings': '🔌 插件設置',
+        'pluginList': '插件列表',
+        'pluginLoading': '載入中...',
+        'pluginNoPlugins': '暫無插件',
+        'pluginEnabled': '已啟用',
+        'pluginDisabled': '已停用',
+        'pluginEnable': '啟用',
+        'pluginDisable': '停用',
+        'pluginRefresh': '🔄 重新整理',
+        'pluginClose': '關閉',
+        'pluginUninstall': '卸載',
+        
+        // 插件市場
+        'pluginTabInstalled': '📦 已安裝',
+        'pluginTabMarket': '🔍 插件市場',
+        'pluginSearchPlaceholder': '搜尋插件...',
+        'pluginSearch': '搜尋',
+        'pluginInstall': '安裝',
+        'pluginUninstall': '卸載',
+        'pluginInstalling': '安裝中...',
+        'pluginNoResults': '找不到結果',
+        'pluginSearchTip': '輸入關鍵詞搜尋插件...',
+        'pluginDownloads': '次下載',
+        'pluginPrevPage': '上一頁',
+        'pluginNextPage': '下一頁',
+        'pluginPage': '第'
       }
     };
 
@@ -1090,6 +1258,36 @@
       document.getElementById('api-key-input').placeholder = t('apiKeyPlaceholder');
       document.getElementById('ai-config-cancel').textContent = t('cancel');
       document.getElementById('ai-config-save').textContent = t('save');
+      
+      // AI Provider 选择器翻译
+      const providerSelect = document.getElementById('ai-provider-select');
+      if (providerSelect) {
+        const options = providerSelect.querySelectorAll('option');
+        options.forEach(option => {
+          const i18nKey = option.getAttribute('data-i18n');
+          if (i18nKey && t(i18nKey)) {
+            option.textContent = t(i18nKey);
+          }
+        });
+      }
+      
+      // 插件设置对话框
+      const pluginModal = document.getElementById('plugin-settings-modal');
+      if (pluginModal) {
+        pluginModal.querySelector('h3').textContent = t('pluginSettings');
+        document.getElementById('plugin-settings-close').textContent = t('pluginClose');
+        document.getElementById('plugin-refresh').textContent = t('pluginRefresh');
+        
+        // Tab 按钮
+        document.getElementById('plugin-tab-installed').textContent = t('pluginTabInstalled');
+        document.getElementById('plugin-tab-market').textContent = t('pluginTabMarket');
+        
+        // 搜索
+        document.getElementById('plugin-search-input').placeholder = t('pluginSearchPlaceholder');
+        document.getElementById('plugin-search-btn').textContent = t('pluginSearch');
+        document.getElementById('plugin-prev-page').textContent = t('pluginPrevPage');
+        document.getElementById('plugin-next-page').textContent = t('pluginNextPage');
+      }
       
       // 标签右键菜单
       const contextMenuItems = document.querySelectorAll('.context-menu-item');
@@ -1264,6 +1462,14 @@
     aiToolbarBtn.style.background = '#10a37f';
     document.querySelector('.toolbar').appendChild(aiToolbarBtn);
 
+    // Add Plugin button to toolbar
+    const pluginToolbarBtn = document.createElement('button');
+    pluginToolbarBtn.id = 'btn-plugins';
+    pluginToolbarBtn.textContent = '🔌 插件';
+    pluginToolbarBtn.style.marginLeft = '8px';
+    document.querySelector('.toolbar').appendChild(pluginToolbarBtn);
+    pluginToolbarBtn.addEventListener('click', showPluginSettings);
+
     // Check AI configuration
     async function checkAIConfig() {
       try {
@@ -1420,6 +1626,300 @@
 
     // Initialize AI
     checkAIConfig();
+
+    // ========== 插件设置面板 ==========
+    const pluginModal = document.getElementById('plugin-settings-modal');
+    const pluginList = document.getElementById('plugin-list');
+    const pluginSettingsClose = document.getElementById('plugin-settings-close');
+    const pluginRefreshBtn = document.getElementById('plugin-refresh');
+
+    // 打开插件设置面板
+    function showPluginSettings() {
+      loadPluginList();
+      pluginModal.style.display = 'block';
+    }
+
+    // 关闭插件设置面板
+    function hidePluginSettings() {
+      pluginModal.style.display = 'none';
+    }
+
+    // 加载插件列表
+    async function loadPluginList() {
+      if (!pluginList) return;
+      
+      pluginList.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginLoading')}</p>`;
+      
+      try {
+        const result = await window.electronAPI.plugins.getList();
+        
+        if (!result.success || !result.plugins || result.plugins.length === 0) {
+          pluginList.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginNoPlugins')}</p>`;
+          return;
+        }
+        
+        let html = '';
+        result.plugins.forEach(plugin => {
+          const isEnabled = plugin.state === 'activated';
+          const stateClass = isEnabled ? 'plugin-enabled' : 'plugin-disabled';
+          const stateText = isEnabled ? t('pluginEnabled') : t('pluginDisabled');
+          const toggleBtn = isEnabled 
+            ? `<button class="plugin-toggle-btn" data-plugin-id="${plugin.id}" data-action="disable">${t('pluginDisable')}</button>`
+            : `<button class="plugin-toggle-btn" data-plugin-id="${plugin.id}" data-action="enable">${t('pluginEnable')}</button>`;
+          
+          html += `
+            <div class="plugin-item" style="padding: 12px; border-bottom: 1px solid var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong>${plugin.name || plugin.id}</strong>
+                  <span style="color: var(--text-secondary); font-size: 12px;">v${plugin.version || '1.0.0'}</span>
+                </div>
+                <span class="${stateClass}" style="font-size: 12px; padding: 2px 8px; border-radius: 3px; background: var(--bg-secondary);">${stateText}</span>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 12px; margin: 4px 0;">${plugin.description || ''}</p>
+              <div style="margin-top: 8px; display: flex; gap: 8px;">
+                ${toggleBtn}
+                <button class="plugin-uninstall-btn" data-plugin-id="${plugin.id}" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">${t('pluginUninstall')}</button>
+              </div>
+            </div>
+          `;
+        });
+        
+        pluginList.innerHTML = html;
+        
+        // 绑定插件开关按钮事件
+        pluginList.querySelectorAll('.plugin-toggle-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const pluginId = e.target.dataset.pluginId;
+            const action = e.target.dataset.action;
+            
+            try {
+              if (action === 'enable') {
+                await window.electronAPI.plugins.activate(pluginId);
+              } else {
+                await window.electronAPI.plugins.deactivate(pluginId);
+              }
+              loadPluginList(); // 刷新列表
+            } catch (err) {
+              alert('操作失败: ' + err.message);
+            }
+          });
+        });
+        
+        // 绑定插件卸载按钮事件
+        pluginList.querySelectorAll('.plugin-uninstall-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const pluginId = e.target.dataset.pluginId;
+            
+            if (!confirm(`确定要卸载插件 "${pluginId}" 吗？`)) {
+              return;
+            }
+            
+            e.target.textContent = t('pluginInstalling'); // 复用"安装中"文案
+            e.target.disabled = true;
+            
+            try {
+              const result = await window.electronAPI.plugins.uninstall(pluginId);
+              if (result.success) {
+                loadPluginList(); // 刷新列表
+              } else {
+                e.target.textContent = t('pluginUninstall');
+                e.target.disabled = false;
+                alert('卸载失败: ' + result.error);
+              }
+            } catch (err) {
+              e.target.textContent = t('pluginUninstall');
+              e.target.disabled = false;
+              alert('卸载失败: ' + err.message);
+            }
+          });
+        });
+        
+      } catch (err) {
+        console.error('加载插件列表失败:', err);
+        pluginList.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginNoPlugins')}</p>`;
+      }
+    }
+
+    // 插件设置面板事件绑定
+    if (pluginSettingsClose) {
+      pluginSettingsClose.addEventListener('click', hidePluginSettings);
+    }
+    if (pluginRefreshBtn) {
+      pluginRefreshBtn.addEventListener('click', loadPluginList);
+    }
+    // 点击模态框外部关闭
+    if (pluginModal) {
+      pluginModal.addEventListener('click', (e) => {
+        if (e.target === pluginModal) {
+          hidePluginSettings();
+        }
+      });
+    }
+
+    // ========== 插件市场搜索功能 ==========
+    const pluginTabInstalled = document.getElementById('plugin-tab-installed');
+    const pluginTabMarket = document.getElementById('plugin-tab-market');
+    const pluginInstalledPanel = document.getElementById('plugin-installed-panel');
+    const pluginMarketPanel = document.getElementById('plugin-market-panel');
+    const pluginSearchInput = document.getElementById('plugin-search-input');
+    const pluginSearchBtn = document.getElementById('plugin-search-btn');
+    const pluginSearchResults = document.getElementById('plugin-search-results');
+    const pluginPrevPage = document.getElementById('plugin-prev-page');
+    const pluginNextPage = document.getElementById('plugin-next-page');
+    const pluginPageInfo = document.getElementById('plugin-page-info');
+
+    let currentSearchPage = 1;
+    let totalPages = 1;
+    let currentSearchQuery = '';
+
+    // Tab 切换
+    if (pluginTabInstalled && pluginTabMarket) {
+      pluginTabInstalled.addEventListener('click', () => {
+        pluginTabInstalled.style.background = 'var(--bg-secondary)';
+        pluginTabInstalled.style.borderBottom = '2px solid var(--accent)';
+        pluginTabMarket.style.background = 'var(--bg-primary)';
+        pluginTabMarket.style.borderBottom = 'none';
+        pluginInstalledPanel.style.display = 'block';
+        pluginMarketPanel.style.display = 'none';
+      });
+
+      pluginTabMarket.addEventListener('click', () => {
+        pluginTabMarket.style.background = 'var(--bg-secondary)';
+        pluginTabMarket.style.borderBottom = '2px solid var(--accent)';
+        pluginTabInstalled.style.background = 'var(--bg-primary)';
+        pluginTabInstalled.style.borderBottom = 'none';
+        pluginInstalledPanel.style.display = 'none';
+        pluginMarketPanel.style.display = 'block';
+      });
+    }
+
+    // 搜索插件
+    async function searchPlugins(query, page = 1) {
+      if (!query.trim()) {
+        pluginSearchResults.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginSearchTip')}</p>`;
+        return;
+      }
+
+      pluginSearchResults.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginLoading')}</p>`;
+      currentSearchQuery = query;
+      currentSearchPage = page;
+
+      try {
+        const result = await window.electronAPI.plugins.search(query, page);
+        
+        if (!result.success || !result.extensions || result.extensions.length === 0) {
+          pluginSearchResults.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginNoResults')}</p>`;
+          return;
+        }
+
+        // 计算分页
+        const count = result.count || 0;
+        totalPages = Math.ceil(count / 20) || 1;
+
+        let html = '';
+        result.extensions.forEach(ext => {
+          const name = ext.name || ext.extensionName || 'Unknown';
+          const namespace = ext.namespace || '';
+          const displayName = ext.displayName || name;
+          const description = ext.description || '';
+          const version = ext.version || '1.0.0';
+          const downloadCount = ext.downloadCount || 0;
+          const iconUrl = ext.files?.icon || '';
+          
+          html += `
+            <div class="plugin-market-item" style="padding: 12px; border-bottom: 1px solid var(--border);">
+              <div style="display: flex; gap: 12px;">
+                ${iconUrl ? `<img src="${iconUrl}" style="width: 48px; height: 48px; object-fit: contain;">` : '<div style="width: 48px; height: 48px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 24px;">📦</div>'}
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>${displayName}</strong>
+                    <span style="color: var(--text-secondary); font-size: 12px;">v${version}</span>
+                  </div>
+                  <p style="color: var(--text-secondary); font-size: 12px; margin: 4px 0;">${namespace}.${name}</p>
+                  <p style="color: var(--text-secondary); font-size: 12px;">${description.substring(0, 100)}${description.length > 100 ? '...' : ''}</p>
+                  <p style="color: var(--text-secondary); font-size: 11px; margin-top: 4px;">⬇️ ${downloadCount.toLocaleString()} ${t('pluginDownloads')}</p>
+                </div>
+              </div>
+              <div style="margin-top: 8px; text-align: right;">
+                <button class="plugin-install-btn" data-namespace="${namespace}" data-name="${name}" data-version="${version}" style="padding: 6px 16px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">${t('pluginInstall')}</button>
+              </div>
+            </div>
+          `;
+        });
+
+        pluginSearchResults.innerHTML = html;
+
+        // 更新分页
+        pluginPageInfo.textContent = `${t('pluginPage')}${currentSearchPage} / ${totalPages}`;
+        pluginPrevPage.disabled = currentSearchPage <= 1;
+        pluginNextPage.disabled = currentSearchPage >= totalPages;
+
+        // 绑定安装按钮
+        pluginSearchResults.querySelectorAll('.plugin-install-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const namespace = e.target.dataset.namespace;
+            const name = e.target.dataset.name;
+            const version = e.target.dataset.version;
+            
+            e.target.textContent = t('pluginInstalling');
+            e.target.disabled = true;
+            
+            try {
+              const result = await window.electronAPI.plugins.install(namespace, name, version);
+              if (result.success) {
+                e.target.textContent = t('pluginInstall') + ' ✓';
+              } else {
+                e.target.textContent = t('pluginInstall');
+                e.target.disabled = false;
+                alert('安装失败: ' + result.error);
+              }
+            } catch (err) {
+              e.target.textContent = t('pluginInstall');
+              e.target.disabled = false;
+              alert('安装失败: ' + err.message);
+            }
+          });
+        });
+
+      } catch (err) {
+        console.error('搜索插件失败:', err);
+        pluginSearchResults.innerHTML = `<p style="color: var(--text-secondary);">${t('pluginNoResults')}</p>`;
+      }
+    }
+
+    // 搜索按钮点击
+    if (pluginSearchBtn) {
+      pluginSearchBtn.addEventListener('click', () => {
+        searchPlugins(pluginSearchInput.value, 1);
+      });
+    }
+
+    // 搜索框回车
+    if (pluginSearchInput) {
+      pluginSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          searchPlugins(pluginSearchInput.value, 1);
+        }
+      });
+    }
+
+    // 分页
+    if (pluginPrevPage) {
+      pluginPrevPage.addEventListener('click', () => {
+        if (currentSearchPage > 1) {
+          searchPlugins(currentSearchQuery, currentSearchPage - 1);
+        }
+      });
+    }
+
+    if (pluginNextPage) {
+      pluginNextPage.addEventListener('click', () => {
+        if (currentSearchPage < totalPages) {
+          searchPlugins(currentSearchQuery, currentSearchPage + 1);
+        }
+      });
+    }
 
     // ========== 右键菜单功能 ==========
     const contextMenu = document.getElementById('file-tree-context-menu');

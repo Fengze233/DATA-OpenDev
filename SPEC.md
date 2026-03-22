@@ -14,7 +14,30 @@
 
 ### Phase 1: MVP (最小可行产品) ✅ 已完成
 
-### Phase 2: VSCode 插件兼容层 (规划中)
+### Phase 2: VSCode 插件兼容层 ✅ 已完成
+
+#### 2.1 插件加载框架 (桥王 主导) ✅ 已完成
+- [x] 2.1.1 插件目录结构定义 - plugin-manager.js
+- [x] 2.1.2 package.json 解析器
+- [x] 2.1.3 插件注册机制
+- [x] 2.1.4 插件设置 UI
+
+#### 2.2 VSCode API 兼容层 (调度 主导) ✅ 已完成
+- [x] 2.2.1 Extension Host 骨架 - vscode-api.js
+- [x] 2.2.2 workspace API - vscode-workspace.js
+- [x] 2.2.3 window API - vscode-window.js
+- [x] 2.2.4 commands API - vscode-commands.js
+- [x] 2.2.5 languages API - vscode-languages.js
+
+#### 2.3 插件市场 (桥王 主导) ✅ 已完成
+- [x] 2.3.1 OpenVSX API 对接 - openvsx-client.js
+- [x] 2.3.2 插件搜索 UI
+- [x] 2.3.3 插件安装/卸载
+
+#### 2.5 增强功能 (规划中)
+- [ ] 2.5.1 插件状态持久化
+- [ ] 2.5.2 插件配置存储
+- [ ] 2.5.3 插件依赖解析
 
 ---
 
@@ -31,6 +54,11 @@
   - OpenAI (GPT-4/GPT-3.5)
   - Anthropic Claude
   - Ollama (本地模型)
+  - Minimax (国际版/CN版) ⚠️ 待测试
+  - 智谱GLM (glm-4) ⚠️ 待测试
+  - 阿里通义 (Qwen系列) ⚠️ 待测试
+  - 讯飞星火 (WebSocket) ⚠️ 待实现
+  - 百度文心 (ERNIE系列) ⚠️ 待测试
 - 基础的代码补全/生成
 - 对话式 AI 助手面板
 
@@ -135,6 +163,8 @@ OpenDev/
 | 日期 | 版本 | 更新内容 |
 |------|------|----------|
 | 2026-03-23 | 1.0.0 | Phase 1 MVP 完成，多语言支持 |
+| 2026-03-23 | 1.1.0 | **Phase 2.2 VSCode API 兼容层** - 添加10+ VSCode核心API支持 |
+| 2026-03-23 | 1.1.0 | AI Provider扩展: 添加Minimax/智谱/通义/讯飞/文心支持 |
 
 ---
 
