@@ -1,0 +1,63 @@
+{
+  "name": "opendev",
+  "version": "1.0.0",
+  "description": "AI全栈自动开发IDE - 运行于OpenClaw的AI软件开发团队",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.opendev.ide",
+    "productName": "OpenDev IDE",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fengze233/DATA-OpenDev.git"
+  },
+  "keywords": [
+    "ide",
+    "ai",
+    "electron",
+    "monaco-editor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Fengze233/DATA-OpenDev/issues"
+  },
+  "homepage": "https://github.com/Fengze233/DATA-OpenDev#readme",
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-log": "^5.2.4"
+  }
+}
