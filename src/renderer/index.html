@@ -205,6 +205,34 @@
       gap: 4px;
     }
 
+    /* Context Menu */
+    .context-menu {
+      position: fixed;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 150px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 2000;
+    }
+
+    .context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .context-menu-item:hover {
+      background: var(--accent);
+    }
+
+    .context-menu-separator {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
     /* Welcome screen */
     .welcome {
       flex: 1;
@@ -494,6 +522,41 @@
       </select>
     </div>
 
+    <!-- Right Click Menu for File Tree -->
+  <div id="file-tree-context-menu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" data-action="newFile">新建文件</div>
+    <div class="context-menu-item" data-action="newFolder">新建文件夹</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="rename">重命名</div>
+    <div class="context-menu-item" data-action="delete">删除</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="copyPath">复制路径</div>
+  </div>
+
+  <!-- Rename Input Dialog -->
+  <div id="rename-dialog" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 300px;">
+      <h3>重命名</h3>
+      <input type="text" id="rename-input" style="width: 100%; padding: 8px; margin: 10px 0; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="rename-cancel" style="padding: 6px 12px;">取消</button>
+        <button id="rename-confirm" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 3px;">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New File/Folder Dialog -->
+  <div id="new-item-dialog" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 300px;">
+      <h3 id="new-item-title">新建文件</h3>
+      <input type="text" id="new-item-input" style="width: 100%; padding: 8px; margin: 10px 0; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="new-item-cancel" style="padding: 6px 12px;">取消</button>
+        <button id="new-item-confirm" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 3px;">确定</button>
+      </div>
+    </div>
+  </div>
+
     <!-- Status bar -->
     <div class="status-bar">
       <div class="status-item" id="status-file">📄 未打开文件</div>
@@ -561,6 +624,10 @@
     let currentFolder = null;
     let openFiles = []; // { path, content, language }
     let activeFileIndex = -1;
+    
+    // 右键菜单相关状态
+    let contextMenuTarget = null; // 右键点击的文件/文件夹项
+    let contextMenuType = null; // 'file' 或 'folder'
 
     // DOM Elements
     const btnOpenFolder = document.getElementById('btn-open-folder');
@@ -1353,6 +1420,215 @@
 
     // Initialize AI
     checkAIConfig();
+
+    // ========== 右键菜单功能 ==========
+    const contextMenu = document.getElementById('file-tree-context-menu');
+    const renameDialog = document.getElementById('rename-dialog');
+    const newItemDialog = document.getElementById('new-item-dialog');
+    const renameInput = document.getElementById('rename-input');
+    const newItemInput = document.getElementById('new-item-input');
+    const newItemTitle = document.getElementById('new-item-title');
+    let currentContextAction = null;
+
+    // 文件树右键点击事件
+    fileTree.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      
+      // 查找被右键点击的文件项
+      const fileItem = e.target.closest('.file-item');
+      if (fileItem) {
+        contextMenuTarget = fileItem.dataset.path;
+        contextMenuType = fileItem.dataset.isDirectory === 'true' ? 'folder' : 'file';
+        
+        // 显示右键菜单
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+      } else if (currentFolder) {
+        // 右键点击空白区域，显示新建选项
+        contextMenuTarget = currentFolder;
+        contextMenuType = 'folder';
+        
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = e.pageX + 'px';
+        contextMenu.style.top = e.pageY + 'px';
+      }
+    });
+
+    // 点击其他地方关闭右键菜单
+    document.addEventListener('click', (e) => {
+      if (!contextMenu.contains(e.target)) {
+        contextMenu.style.display = 'none';
+      }
+    });
+
+    // 右键菜单项点击事件
+    contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const action = item.dataset.action;
+        contextMenu.style.display = 'none';
+        
+        if (!contextMenuTarget && action !== 'newFile' && action !== 'newFolder') {
+          return;
+        }
+
+        switch (action) {
+          case 'newFile':
+            showNewItemDialog('file');
+            break;
+          case 'newFolder':
+            showNewItemDialog('folder');
+            break;
+          case 'rename':
+            showRenameDialog();
+            break;
+          case 'delete':
+            await handleDelete();
+            break;
+          case 'copyPath':
+            navigator.clipboard.writeText(contextMenuTarget);
+            break;
+        }
+      });
+    });
+
+    // 显示重命名对话框
+    function showRenameDialog() {
+      if (!contextMenuTarget) return;
+      
+      const fileName = contextMenuTarget.split(/[\\/]/).pop();
+      renameInput.value = fileName;
+      renameDialog.style.display = 'flex';
+      renameInput.focus();
+      renameInput.select();
+    }
+
+    // 显示新建文件/文件夹对话框
+    function showNewItemDialog(type) {
+      newItemTitle.textContent = type === 'file' ? '新建文件' : '新建文件夹';
+      newItemInput.value = '';
+      newItemDialog.style.display = 'flex';
+      newItemInput.focus();
+      currentContextAction = type;
+    }
+
+    // 重命名确认
+    document.getElementById('rename-confirm').addEventListener('click', async () => {
+      const newName = renameInput.value.trim();
+      if (!newName) {
+        renameDialog.style.display = 'none';
+        return;
+      }
+
+      const result = await window.electronAPI.rename({
+        oldPath: contextMenuTarget,
+        newName: newName
+      });
+
+      if (result.success) {
+        // 刷新文件树
+        await refreshFileTree();
+      } else {
+        alert('重命名失败: ' + result.error);
+      }
+      
+      renameDialog.style.display = 'none';
+    });
+
+    // 取消重命名
+    document.getElementById('rename-cancel').addEventListener('click', () => {
+      renameDialog.style.display = 'none';
+    });
+
+    // 新建确认
+    document.getElementById('new-item-confirm').addEventListener('click', async () => {
+      const name = newItemInput.value.trim();
+      if (!name) {
+        newItemDialog.style.display = 'none';
+        return;
+      }
+
+      const dirPath = contextMenuTarget || currentFolder;
+      if (!dirPath) {
+        newItemDialog.style.display = 'none';
+        return;
+      }
+
+      let result;
+      if (currentContextAction === 'file') {
+        result = await window.electronAPI.createFile({ dirPath, fileName: name });
+      } else {
+        result = await window.electronAPI.createFolder({ dirPath, folderName: name });
+      }
+
+      if (result.success) {
+        await refreshFileTree();
+      } else {
+        alert((currentContextAction === 'file' ? '创建文件' : '创建文件夹') + '失败: ' + result.error);
+      }
+      
+      newItemDialog.style.display = 'none';
+    });
+
+    // 取消新建
+    document.getElementById('new-item-cancel').addEventListener('click', () => {
+      newItemDialog.style.display = 'none';
+    });
+
+    // 删除处理
+    async function handleDelete() {
+      if (!contextMenuTarget) return;
+
+      const fileName = contextMenuTarget.split(/[\\/]/).pop();
+      const confirmed = await window.electronAPI.confirm({
+        title: '确认删除',
+        message: '确定要删除 "' + fileName + '" 吗？',
+        detail: '此操作无法撤销。'
+      });
+
+      if (confirmed.confirmed) {
+        const result = await window.electronAPI.delete(contextMenuTarget);
+        if (result.success) {
+          await refreshFileTree();
+        } else {
+          alert('删除失败: ' + result.error);
+        }
+      }
+    }
+
+    // 刷新文件树
+    async function refreshFileTree() {
+      if (!currentFolder) return;
+      
+      const result = await window.electronAPI.openFolder();
+      if (result && result.folderPath === currentFolder) {
+        renderFileTree(result.tree);
+      }
+    }
+
+    // 按Enter确认新建/重命名
+    renameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('rename-confirm').click();
+      }
+    });
+
+    newItemInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('new-item-confirm').click();
+      }
+    });
+
+    // ESC关闭对话框
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        renameDialog.style.display = 'none';
+        newItemDialog.style.display = 'none';
+        contextMenu.style.display = 'none';
+      }
+    });
+
+    console.log('右键菜单功能已初始化');
 
     console.log('OpenDev IDE initialized');
   </script>
