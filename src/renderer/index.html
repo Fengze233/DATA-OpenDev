@@ -1024,6 +1024,53 @@
 
   <script src="lib/monaco-editor/min/vs/loader.js"></script>
   <script>
+    // ========== 全局错误处理 (Phase 5.1 Bug修复) ==========
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('[全局错误]', message, source, lineno, colno, error);
+      // 显示错误提示
+      const msg = document.createElement('div');
+      msg.style.cssText = 'position: fixed; top: 50px; right: 20px; background: #f44336; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
+      msg.textContent = '错误: ' + message;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 5000);
+      return true; // 阻止默认错误处理
+    };
+
+    window.onunhandledrejection = function(event) {
+      console.error('[未处理的Promise错误]', event.reason);
+      const msg = document.createElement('div');
+      msg.style.cssText = 'position: fixed; top: 50px; right: 20px; background: #ff9800; color: white; padding: 12px 20px; border-radius: 4px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
+      msg.textContent = '异步错误: ' + (event.reason?.message || event.reason);
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 5000);
+    };
+
+    // ========== 性能优化工具函数 (Phase 5.1) ==========
+    // 防抖函数 - 用于限制频繁触发的事件
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // 节流函数 - 用于平滑处理频繁事件
+    function throttle(func, limit) {
+      let inThrottle;
+      return function(...args) {
+        if (!inThrottle) {
+          func.apply(this, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    }
+
     // State
     let currentFile = null;
     let editor = null;
@@ -1060,15 +1107,32 @@
           value: '',
           language: 'javascript',
           theme: 'vs-dark',
-          automaticLayout: true,
+          automaticLayout: false, // Bug修复: 关闭自动布局，改用手动控制以提高性能
           fontSize: 14,
           minimap: { enabled: true },
           scrollBeyondLastLine: false,
           renderWhitespace: 'selection',
-          tabSize: 2
+          tabSize: 2,
+          // 性能优化配置
+          smoothScrolling: true,
+          cursorSmoothCaretAnimation: 'on',
+          fastScrollSensitivity: 5,
+          mouseWheelScrollSensitivity: 1,
+          // 内存优化
+          largeFileOptimizations: true,
+          maxTokenizationLineLength: 10000
         });
 
         console.log('Monaco Editor initialized');
+        
+        // 手动控制编辑器布局 - 性能优化
+        const editorContainer = document.getElementById('editor-container');
+        const resizeObserver = new ResizeObserver(debounce(() => {
+          if (editor) {
+            editor.layout();
+          }
+        }, 100));
+        resizeObserver.observe(editorContainer);
         
         // 添加光标位置变化监听
         editor.onDidChangeCursorPosition((e) => {
@@ -1497,6 +1561,9 @@
         console.error('Error opening folder:', error);
       }
     }
+
+    // 优化文件树渲染 - 使用防抖减少频繁重绘
+    const renderFileTreeDebounced = debounce(renderFileTree, 100);
 
     // Render file tree
     function renderFileTree(items, container = fileTree) {
@@ -2144,24 +2211,38 @@
 
     // 主题切换功能
     let currentTheme = localStorage.getItem('theme') || 'dark';
+    let isThemeChanging = false; // 防止重复切换
+    
     function setTheme(theme) {
+      if (isThemeChanging || currentTheme === theme) return;
+      isThemeChanging = true;
+      
       currentTheme = theme;
-      if (theme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.getElementById('theme-toggle').textContent = '☀️';
-        // 同时更新 Monaco
-        if (monaco && monaco.editor) {
-          monaco.editor.setTheme('vs');
+      
+      // Bug修复: 主题切换闪烁优化 - 先应用CSS变量再更新Monaco
+      try {
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.getElementById('theme-toggle').textContent = '☀️';
+          // 同时更新 Monaco
+          if (window.monaco && window.monaco.editor) {
+            window.monaco.editor.setTheme('vs');
+          }
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          document.getElementById('theme-toggle').textContent = '🌙';
+          // 同时更新 Monaco
+          if (window.monaco && window.monaco.editor) {
+            window.monaco.editor.setTheme('vs-dark');
+          }
         }
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-        document.getElementById('theme-toggle').textContent = '🌙';
-        // 同时更新 Monaco
-        if (monaco && monaco.editor) {
-          monaco.editor.setTheme('vs-dark');
-        }
+        localStorage.setItem('theme', theme);
+      } finally {
+        // 使用requestAnimationFrame确保DOM更新完成
+        requestAnimationFrame(() => {
+          isThemeChanging = false;
+        });
       }
-      localStorage.setItem('theme', theme);
     }
     
     // 初始化主题
@@ -2903,7 +2984,12 @@
     // Send message to AI
     async function sendAIMessage() {
       const message = aiInput.value.trim();
-      if (!message || !aiConfigured) return;
+      if (!message || !aiConfigured) {
+        if (!aiConfigured) {
+          showAIPanel(); // 如果未配置AI，打开配置面板
+        }
+        return;
+      }
 
       // Add user message
       addAIMessage(message, 'user');
@@ -2914,15 +3000,20 @@
       try {
         const result = await window.electronAPI.ai.chat(aiConversation);
         
-        if (result.success) {
+        if (result.success && result.response) {
           const response = result.response.content;
           addAIMessage(response, 'assistant');
           aiConversation.push({ role: 'assistant', content: response });
         } else {
-          addAIMessage(`错误: ${result.error}`, 'error');
+          // Bug修复: AI响应错误处理优化
+          const errorMsg = result.error || result.response?.error || '未知错误';
+          addAIMessage(`❌ AI错误: ${errorMsg}`, 'error');
+          console.error('[AI] 响应错误:', result);
         }
       } catch (e) {
-        addAIMessage(`错误: ${e.message}`, 'error');
+        // Bug修复: 添加更详细的错误信息
+        addAIMessage(`❌ 网络错误: ${e.message}`, 'error');
+        console.error('[AI] 请求错误:', e);
       }
 
       aiSend.disabled = false;

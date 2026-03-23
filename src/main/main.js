@@ -11,6 +11,7 @@ const { DebugManager } = require('./debugger');
 const { GitManager } = require('./git-manager');
 const { ProjectTemplates } = require('./project-templates');
 const { PluginEcosystem } = require('./plugin-ecosystem');
+const { StabilityManager } = require('./stability');
 
 // 绂佺敤 GPU 鍔犻�熶互閬垮厤缂撳瓨璀﹀憡
 app.disableHardwareAcceleration();
@@ -1228,4 +1229,54 @@ ipcMain.handle('plugins:checkConflicts', async (event, plugins) => {
 // 锟侥碉拷锟斤拷锟斤拷
 ipcMain.handle('plugins:generateDocs', async () => {
   return pluginEcosystem.generateAllDocs();
+});
+
+// 5.2 稳定性优化 IPC
+let stabilityManager = null;
+
+function initStability() {
+  try {
+    stabilityManager = new StabilityManager({
+      logPath: app.getPath('userData'),
+      maxLogSize: 10 * 1024 * 1024
+    });
+    console.log('[Stability] 稳定性管理器已初始化');
+  } catch (e) {
+    console.error('[Stability] 初始化失败:', e.message);
+  }
+}
+
+// 初始化
+initStability();
+
+// 性能指标
+ipcMain.handle('stability:getMetrics', async () => {
+  if (!stabilityManager) return null;
+  return stabilityManager.getPerformanceMetrics();
+});
+
+// 获取日志
+ipcMain.handle('stability:getLogs', async (event, days = 1) => {
+  if (!stabilityManager) return [];
+  return stabilityManager.getLogs(days);
+});
+
+// 获取崩溃报告
+ipcMain.handle('stability:getCrashReports', async () => {
+  if (!stabilityManager) return [];
+  return stabilityManager.getCrashReports();
+});
+
+// 清理日志
+ipcMain.handle('stability:cleanup', async () => {
+  if (!stabilityManager) return { success: false };
+  stabilityManager.cleanup();
+  return { success: true };
+});
+
+// 手动报告错误
+ipcMain.handle('stability:reportError', async (event, { type, message, stack }) => {
+  if (!stabilityManager) return { success: false };
+  stabilityManager.handleError(new Error(message), type);
+  return { success: true };
 });

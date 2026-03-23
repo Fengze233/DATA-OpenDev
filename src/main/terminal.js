@@ -2,10 +2,12 @@
  * 终端管理器 - OpenDev IDE
  * Phase 3.1: 内置终端
  * 作者: 小锤 (Hammer)
+ * Phase 5.1: Bug修复
  */
 
 const pty = require('node-pty');
 const os = require('os');
+const log = require('electron-log');
 
 /**
  * 终端会话类
@@ -13,7 +15,10 @@ const os = require('os');
 class TerminalSession {
   constructor(id, shell, cwd) {
     this.id = id;
-    this.shell = shell || (os.platform() === 'win32' ? 'powershell.exe' : 'bash');
+    // Bug修复: Windows下使用正确的shell
+    this.shell = shell || (os.platform() === 'win32' ? 
+      (process.env.COMSPEC || 'powershell.exe') : 
+      (process.env.SHELL || '/bin/bash'));
     this.cwd = cwd || os.homedir();
     this.pty = null;
     this.dataCallback = null;
@@ -25,14 +30,18 @@ class TerminalSession {
    */
   start() {
     const options = {
-      name: 'xterm-color',
+      name: 'xterm-256color',
       cols: 80,
       rows: 30,
       cwd: this.cwd,
-      env: process.env
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color'
+      }
     };
 
     try {
+      log.info('[Terminal] 启动终端:', this.shell, this.cwd);
       this.pty = pty.spawn(this.shell, [], options);
 
       this.pty.onData((data) => {

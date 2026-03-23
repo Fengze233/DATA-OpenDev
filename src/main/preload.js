@@ -157,7 +157,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 菜单事件
   onMenuOpenFile: (callback) => ipcRenderer.on('menu-open-file', callback),
-  onMenuSaveFile: (callback) => ipcRenderer.on('menu-save-file', callback)
+  onMenuSaveFile: (callback) => ipcRenderer.on('menu-save-file', callback),
+
+  // 5.2 稳定性监控
+  stability: {
+    getMetrics: () => ipcRenderer.invoke('stability:getMetrics'),
+    getLogs: (days) => ipcRenderer.invoke('stability:getLogs', days),
+    getCrashReports: () => ipcRenderer.invoke('stability:getCrashReports'),
+    cleanup: () => ipcRenderer.invoke('stability:cleanup'),
+    reportError: (type, message, stack) => 
+      ipcRenderer.invoke('stability:reportError', { type, message, stack })
+  }
 });
 
 // 兼容旧名称
