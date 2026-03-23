@@ -6,6 +6,10 @@ const { AIServiceManager } = require('./ai-providers');
 const { PluginStateManager } = require('./plugin-state');
 const { PluginConfigManager } = require('./plugin-config');
 const { OpenVSXClient } = require('./openvsx-client');
+const { TerminalManager } = require('./terminal');
+const { DebugManager } = require('./debugger');
+const { GitManager } = require('./git-manager');
+const { ProjectTemplates } = require('./project-templates');
 
 // 禁用 GPU 加速以避免缓存警告
 app.disableHardwareAcceleration();
@@ -504,8 +508,140 @@ ipcMain.handle('dialog:confirm', async (event, { title, message, detail }) => {
 
 log.info('文件操作处理器已注册');
 
-// ========== ���ϵͳ IPC ������ ==========
-const { PluginManager } = require('./plugin-manager.js');
+// ========== 终端系统 IPC 处理器 ==========
+const terminalManager = new TerminalManager();
+
+// 创建终端
+ipcMain.handle('terminal:create', async (event, { shell, cwd }) => {
+  try {
+    const result = terminalManager.create(shell, cwd);
+    if (result.success) {
+      // 注册数据回调
+      terminalManager.onData(result.id, (data) => {
+        event.sender.send(`terminal:data:${result.id}`, data);
+      });
+      terminalManager.onExit(result.id, (exitCode, signal) => {
+        event.sender.send(`terminal:exit:${result.id}`, exitCode, signal);
+      });
+    }
+    return result;
+  } catch (error) {
+    log.error('创建终端失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 写入终端
+ipcMain.handle('terminal:write', async (event, { id, data }) => {
+  return terminalManager.write(id, data);
+});
+
+// 调整终端大小
+ipcMain.handle('terminal:resize', async (event, { id, cols, rows }) => {
+  return terminalManager.resize(id, cols, rows);
+});
+
+// 关闭终端
+ipcMain.handle('terminal:close', async (event, id) => {
+  terminalManager.clearCallbacks(id);
+  return terminalManager.close(id);
+});
+
+// 列出终端
+ipcMain.handle('terminal:list', async () => {
+  return terminalManager.list();
+});
+
+log.info('终端系统处理器已注册');
+
+// ========== 调试系统 IPC 处理器 ==========
+const debugManager = new DebugManager();
+let currentDebugSession = null;
+
+// 启动调试
+ipcMain.handle('debug:start', async (event, config) => {
+  try {
+    const result = debugManager.createDebugSession(config);
+    if (result.success) {
+      currentDebugSession = result.id;
+      const startResult = await debugManager.startDebug(result.id);
+      return { success: startResult.success, sessionId: result.id, ...startResult };
+    }
+    return result;
+  } catch (error) {
+    log.error('启动调试失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 停止调试
+ipcMain.handle('debug:stop', async (event, sessionId) => {
+  return debugManager.stopDebug(sessionId || currentDebugSession);
+});
+
+// 继续执行
+ipcMain.handle('debug:continue', async (event, sessionId) => {
+  return debugManager.continue(sessionId || currentDebugSession);
+});
+
+// 暂停
+ipcMain.handle('debug:pause', async (event, sessionId) => {
+  return debugManager.pause(sessionId || currentDebugSession);
+});
+
+// 单步进入
+ipcMain.handle('debug:stepIn', async (event, sessionId) => {
+  return debugManager.stepIn(sessionId || currentDebugSession);
+});
+
+// 单步跳过
+ipcMain.handle('debug:stepOver', async (event, sessionId) => {
+  return debugManager.stepOver(sessionId || currentDebugSession);
+});
+
+// 单步退出
+ipcMain.handle('debug:stepOut', async (event, sessionId) => {
+  return debugManager.stepOut(sessionId || currentDebugSession);
+});
+
+// 设置断点
+ipcMain.handle('debug:setBreakpoint', async (event, { sessionId, file, line }) => {
+  return debugManager.setBreakpoint(sessionId || currentDebugSession, file, line);
+});
+
+// 删除断点
+ipcMain.handle('debug:deleteBreakpoint', async (event, { sessionId, file, line }) => {
+  return debugManager.deleteBreakpoint(sessionId || currentDebugSession, file, line);
+});
+
+// 获取断点
+ipcMain.handle('debug:getBreakpoints', async (event, sessionId) => {
+  return debugManager.getBreakpoints(sessionId || currentDebugSession);
+});
+
+// 获取调用堆栈
+ipcMain.handle('debug:getStack', async (event, sessionId) => {
+  return debugManager.getStack(sessionId || currentDebugSession);
+});
+
+// 获取变量
+ipcMain.handle('debug:getVariables', async (event, { sessionId, scope }) => {
+  return debugManager.getVariables(sessionId || currentDebugSession, scope);
+});
+
+// 评估表达式
+ipcMain.handle('debug:evaluate', async (event, { sessionId, expr }) => {
+  return debugManager.evaluate(sessionId || currentDebugSession, expr);
+});
+
+// 列出调试会话
+ipcMain.handle('debug:listSessions', async () => {
+  return debugManager.listSessions();
+});
+
+log.info('调试系统处理器已注册');
+
+// ========== 插件系统 IPC 处理器 ==========
 
 // ���������ʵ��
 let pluginManager = null;
@@ -673,4 +809,228 @@ ipcMain.handle('plugins:setConfig', async (event, {pluginId, config}) => {
 
 ipcMain.handle('plugins:checkUpdates', async () => {
   return {success: true, updates: []};
+});
+
+// 3.2 Git IPC ������
+let gitManager = null;
+
+ipcMain.handle('git:setRepo', async (event, repoPath) => {
+  try {
+    gitManager = new GitManager(repoPath);
+    const isRepo = await gitManager.isRepo();
+    return { success: true, isRepo };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('git:status', async () => {
+  if (!gitManager) return { notARepo: true };
+  return await gitManager.status();
+});
+
+ipcMain.handle('git:branches', async () => {
+  if (!gitManager) return { all: [], current: '' };
+  return await gitManager.branches();
+});
+
+ipcMain.handle('git:log', async (event, maxCount = 50) => {
+  if (!gitManager) return [];
+  return await gitManager.log(maxCount);
+});
+
+ipcMain.handle('git:diff', async (event, filePath = '') => {
+  if (!gitManager) return '';
+  return await gitManager.diff(filePath);
+});
+
+ipcMain.handle('git:add', async (event, filePath = '.') => {
+  if (!gitManager) return false;
+  return await gitManager.add(filePath);
+});
+
+ipcMain.handle('git:commit', async (event, message) => {
+  if (!gitManager) return { success: false, error: 'No repository' };
+  return await gitManager.commit(message);
+});
+
+ipcMain.handle('git:checkout', async (event, branchName) => {
+  if (!gitManager) return false;
+  return await gitManager.checkout(branchName);
+});
+
+ipcMain.handle('git:createBranch', async (event, branchName) => {
+  if (!gitManager) return false;
+  return await gitManager.createBranch(branchName);
+});
+
+ipcMain.handle('git:pull', async () => {
+  if (!gitManager) return { success: false, error: 'No repository' };
+  return await gitManager.pull();
+});
+
+ipcMain.handle('git:push', async () => {
+  if (!gitManager) return { success: false, error: 'No repository' };
+  return await gitManager.push();
+});
+
+ipcMain.handle('git:remotes', async () => {
+  if (!gitManager) return [];
+  return await gitManager.remotes();
+});
+
+// 3.4 ��Ŀģ�� IPC
+const projectTemplates = new ProjectTemplates();
+
+ipcMain.handle('templates:list', async () => {
+  return projectTemplates.getTemplates();
+});
+
+ipcMain.handle('templates:get', async (event, templateId) => {
+  return projectTemplates.getTemplate(templateId);
+});
+
+ipcMain.handle('templates:categories', async () => {
+  return projectTemplates.getCategories();
+});
+
+ipcMain.handle('templates:create', async (event, { templateId, projectName, targetDir }) => {
+  try {
+    const result = await projectTemplates.createProject(templateId, projectName, targetDir);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('templates:installDeps', async (event, projectPath) => {
+  return await projectTemplates.installDependencies(projectPath);
+});
+
+// ========== AI 代码增强 IPC ==========
+const { createAICodeEnhancer } = require('./ai-code-enhancer');
+const { AICompletionProvider } = require('./ai-completion-provider');
+
+let aiEnhancer = null;
+let aiCompletionProvider = null;
+
+// 初始化 AI 增强器
+function getAIEnhancer() {
+  if (!aiEnhancer) {
+    aiEnhancer = createAICodeEnhancer({
+      provider: 'openai',
+      model: 'gpt-4'
+    });
+  }
+  return aiEnhancer;
+}
+
+// 获取补全提供者
+function getAICompletionProvider() {
+  if (!aiCompletionProvider) {
+    aiCompletionProvider = new AICompletionProvider({
+      provider: 'openai',
+      model: 'gpt-4'
+    });
+  }
+  return aiCompletionProvider;
+}
+
+// 配置 AI 增强器
+ipcMain.handle('ai:configure', async (event, config) => {
+  try {
+    const enhancer = getAIEnhancer();
+    enhancer.configure(config);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 智能补全
+ipcMain.handle('ai:completion', async (event, { code, language, cursorPosition }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.getCompletion(code, language, cursorPosition);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 代码解释
+ipcMain.handle('ai:explain', async (event, { code, language }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.explainCode(code, language);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 重构建议
+ipcMain.handle('ai:refactor', async (event, { code, language, goal }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.suggestRefactoring(code, language, goal);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 代码生成
+ipcMain.handle('ai:generate', async (event, { description, language, context }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.generateCode(description, language, context);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Bug修复
+ipcMain.handle('ai:fixBug', async (event, { code, language, errorMessage }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.fixBug(code, language, errorMessage);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 代码优化
+ipcMain.handle('ai:optimize', async (event, { code, language }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.optimizeCode(code, language);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 生成单元测试
+ipcMain.handle('ai:generateTests', async (event, { code, language, framework }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.generateTests(code, language, framework);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 代码翻译
+ipcMain.handle('ai:translate', async (event, { code, fromLang, toLang }) => {
+  try {
+    const enhancer = getAIEnhancer();
+    const result = await enhancer.translateCode(code, fromLang, toLang);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });

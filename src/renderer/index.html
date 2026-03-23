@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self' https://api.openai.com https://api.anthropic.com">
   <title>OpenDev IDE</title>
+  <link rel="stylesheet" href="../node_modules/xterm/css/xterm.css">
   <style>
     * {
       margin: 0;
@@ -462,6 +463,44 @@
       color: var(--accent);
       margin-left: 4px;
     }
+
+    /* Terminal Panel */
+    .terminal-tab {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: none;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+    }
+    
+    .terminal-tab:hover {
+      background: var(--bg-secondary);
+    }
+    
+    .terminal-tab.active {
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .xterm {
+      padding: 8px;
+    }
+
+    .xterm-viewport {
+      overflow-y: auto !important;
+    }
+
+    /* Debug Breakpoint */
+    .breakpoint-glyph {
+      background: #e51400;
+      width: 4px !important;
+      margin-left: 3px;
+      border-radius: 2px;
+    }
+
+    .breakpoint-line {
+      background: rgba(229, 20, 0, 0.1) !important;
+    }
   </style>
 </head>
 <body>
@@ -479,7 +518,10 @@
     <div class="main-content">
       <!-- Sidebar -->
       <div class="sidebar">
-        <div class="sidebar-header">文件浏览器</div>
+        <div class="sidebar-header">
+          <span id="sidebar-title">文件浏览器</span>
+          <button id="btn-git-panel" onclick="toggleGitPanel()" title="Git" style="margin-left:auto;padding:2px 6px;font-size:12px;">Git</button>
+        </div>
         <div class="file-tree" id="file-tree">
           <div class="file-item" style="color: var(--text-secondary); padding: 20px;">
             点击"打开文件"选择项目文件夹
@@ -496,12 +538,39 @@
         <div class="welcome" id="welcome">
           <h1>OpenDev IDE</h1>
           <p>AI全栈自动开发IDE - 运行于OpenClaw</p>
-          <button id="btn-welcome-open">📂 打开项目</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+            <button id="btn-welcome-open">📂 打开项目</button>
+            <button id="btn-new-project">✨ 新建项目</button>
+          </div>
         </div>
 
         <!-- Editor (hidden by default) -->
         <div class="editor-container" id="editor-container" style="display: none;">
           <div id="monaco-editor"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Project Dialog -->
+    <div id="new-project-dialog" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
+        <div class="modal-header">
+          <h2>✨ 新建项目</h2>
+          <span class="close" onclick="closeNewProjectDialog()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom:15px;">
+            <label style="display:block;margin-bottom:5px;">项目名称:</label>
+            <input type="text" id="new-project-name" placeholder="my-project" style="width:100%;padding:8px;">
+          </div>
+          <div style="margin-bottom:15px;">
+            <label style="display:block;margin-bottom:5px;">选择模板:</label>
+            <div id="template-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button onclick="closeNewProjectDialog()" class="btn-secondary">取消</button>
+          <button onclick="createNewProject()" class="btn-primary">创建项目</button>
         </div>
       </div>
     </div>
@@ -621,6 +690,16 @@
   </div>
   </div>
 
+  <!-- Terminal Panel -->
+  <div id="terminal-panel-container" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 300px; background: var(--bg-primary); border-top: 1px solid var(--border); z-index: 1000;">
+    <!-- Terminal Tabs -->
+    <div id="terminal-tabs" style="display: flex; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 4px 8px 0; gap: 4px;">
+      <button id="terminal-new-btn" style="padding: 4px 12px; background: var(--accent); color: white; border: none; border-radius: 4px 4px 0 0; cursor: pointer;">+ 新建终端</button>
+    </div>
+    <!-- Terminal Content -->
+    <div id="terminal-panel" style="height: calc(100% - 36px); padding: 8px; overflow: hidden;"></div>
+  </div>
+
   <!-- Plugin Settings Modal -->
   <div id="plugin-settings-modal" class="modal" style="display: none;">
     <div class="modal-content" style="max-width: 700px;">
@@ -661,6 +740,61 @@
           <button id="plugin-prev-page" style="padding: 6px 12px;" disabled>上一页</button>
           <span id="plugin-page-info" style="padding: 6px 12px;">1 / 1</span>
           <button id="plugin-next-page" style="padding: 6px 12px;" disabled>下一页</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug Panel -->
+  <div id="debug-panel" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 250px; background: var(--bg-primary); border-top: 1px solid var(--border); z-index: 1000;">
+    <!-- Debug Toolbar -->
+    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bg-secondary); border-bottom: 1px solid var(--border);">
+      <span style="font-weight: bold;">🐛 调试</span>
+      <button id="debug-start" style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px;">▶ 开始</button>
+      <button id="debug-stop" style="padding: 4px 12px; background: #dc3545; color: white; border: none; border-radius: 4px;" disabled>■ 停止</button>
+      <div style="width: 1px; height: 20px; background: var(--border);"></div>
+      <button id="debug-continue" style="padding: 4px 12px;" disabled>▶ 继续</button>
+      <button id="debug-pause" style="padding: 4px 12px;" disabled>⏸ 暂停</button>
+      <button id="debug-step-in" style="padding: 4px 12px;" disabled>↓ 进入</button>
+      <button id="debug-step-over" style="padding: 4px 12px;" disabled>→ 跳过</button>
+      <button id="debug-step-out" style="padding: 4px 12px;" disabled>↑ 跳出</button>
+      <div style="flex: 1;"></div>
+      <button id="debug-close" style="padding: 4px 12px;">×</button>
+    </div>
+    
+    <!-- Debug Content -->
+    <div style="display: flex; height: calc(100% - 44px);">
+      <!-- Call Stack -->
+      <div style="width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px;">
+        <div style="font-weight: bold; margin-bottom: 8px;">调用堆栈</div>
+        <div id="debug-callstack">
+          <p style="color: var(--text-secondary); font-size: 12px;">未运行</p>
+        </div>
+      </div>
+      
+      <!-- Variables -->
+      <div style="width: 250px; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px;">
+        <div style="font-weight: bold; margin-bottom: 8px;">变量</div>
+        <div id="debug-variables">
+          <p style="color: var(--text-secondary); font-size: 12px;">无</p>
+        </div>
+      </div>
+      
+      <!-- Breakpoints -->
+      <div style="width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px;">
+        <div style="font-weight: bold; margin-bottom: 8px;">断点</div>
+        <div id="debug-breakpoints">
+          <p style="color: var(--text-secondary); font-size: 12px;">无断点</p>
+        </div>
+      </div>
+      
+      <!-- Debug Console -->
+      <div style="flex: 1; display: flex; flex-direction: column;">
+        <div style="font-weight: bold; padding: 8px; border-bottom: 1px solid var(--border);">控制台</div>
+        <div id="debug-console" style="flex: 1; overflow-y: auto; padding: 8px; font-family: monospace; font-size: 12px;"></div>
+        <div style="display: flex; padding: 8px; border-top: 1px solid var(--border);">
+          <input type="text" id="debug-console-input" placeholder="评估表达式..." style="flex: 1; padding: 6px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px;">
+          <button id="debug-eval" style="padding: 6px 12px; margin-left: 8px;">执行</button>
         </div>
       </div>
     </div>
@@ -713,7 +847,79 @@
         });
 
         console.log('Monaco Editor initialized');
+        
+        // 添加断点装饰器
+        if (editor) {
+          editor.onMouseDown((e) => {
+            // 右键点击设置断点
+            if (e.event.rightButton && e.target.position) {
+              const line = e.target.position.lineNumber;
+              const file = currentFile;
+              if (file && file.endsWith('.js')) {
+                toggleBreakpoint(file, line);
+              }
+            }
+          });
+          
+          // 监听断点变化
+          editor.onDidChangeBreakpoints(() => {
+            refreshEditorBreakpoints();
+          });
+        }
       });
+    }
+
+    // 切换断点
+    async function toggleBreakpoint(file, line) {
+      if (!currentDebugSession) {
+        alert('请先启动调试会话');
+        return;
+      }
+      
+      const bps = await window.electronAPI.debug.getBreakpoints(currentDebugSession);
+      const existing = bps.find(b => b.file === file && b.lines.includes(line));
+      
+      if (existing) {
+        await window.electronAPI.debug.deleteBreakpoint(currentDebugSession, file, line);
+        addDebugLog(`删除断点: ${file}:${line}`);
+      } else {
+        await window.electronAPI.debug.setBreakpoint(currentDebugSession, file, line);
+        addDebugLog(`添加断点: ${file}:${line}`);
+      }
+      
+      refreshEditorBreakpoints();
+      await refreshBreakpoints();
+    }
+
+    // 刷新编辑器断点装饰
+    async function refreshEditorBreakpoints() {
+      if (!editor || !currentDebugSession) return;
+      
+      const bps = await window.electronAPI.debug.getBreakpoints(currentDebugSession);
+      const file = currentFile;
+      
+      if (!file) return;
+      
+      const fileBps = bps.find(b => b.file === file);
+      const lines = fileBps ? fileBps.lines : [];
+      
+      // 清除旧的装饰器
+      const oldDecorations = editor.getModel().getAllDecorations()
+        .filter(d => d.options.className === 'breakpoint-glyph');
+      editor.deltaDecorations(oldDecorations, []);
+      
+      // 添加新的断点装饰器
+      const decorations = lines.map(line => ({
+        range: new monaco.Range(line, 1, line, 1),
+        options: {
+          isWholeLine: true,
+          className: 'breakpoint-line',
+          glyphMarginClassName: 'breakpoint-glyph',
+          glyphMarginHoverMessage: { value: '**断点**' }
+        }
+      }));
+      
+      editor.deltaDecorations([], decorations);
     }
 
     // Show editor
@@ -721,6 +927,126 @@
       welcome.style.display = 'none';
       editorContainer.style.display = 'block';
       initMonaco();
+      
+      // 添加编辑器右键菜单 (AI 增强)
+      if (editor) {
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Shift | monaco.KeyCode.KeyA, async () => {
+          // 选中代码后按 Ctrl+Shift+A 触发 AI 菜单
+          const selection = editor.getSelection();
+          const selectedText = editor.getModel().getValueInRange(selection);
+          
+          if (selectedText && selectedText.trim()) {
+            // 显示 AI 功能菜单
+            const language = currentFile ? getLanguage(currentFile) : 'javascript';
+            showAIMenu(selectedText, language);
+          }
+        });
+      }
+    }
+
+    // AI 功能菜单
+    function showAIMenu(code, language) {
+      const aiMenu = document.createElement('div');
+      aiMenu.className = 'ai-menu';
+      aiMenu.style.cssText = `
+        position: fixed;
+        background: #2d2d30;
+        border: 1px solid #3c3c3c;
+        border-radius: 4px;
+        padding: 4px 0;
+        z-index: 10000;
+        min-width: 180px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+      
+      const menuItems = [
+        { label: '🤖 AI 解释代码', action: 'explain' },
+        { label: '🔧 AI 重构建议', action: 'refactor' },
+        { label: '🐛 AI 修复 Bug', action: 'fixBug' },
+        { label: '⚡ AI 优化代码', action: 'optimize' },
+        { label: '🧪 AI 生成测试', action: 'generateTests' },
+        { label: '🌐 AI 代码翻译', action: 'translate' }
+      ];
+      
+      menuItems.forEach(item => {
+        const menuItem = document.createElement('div');
+        menuItem.className = 'ai-menu-item';
+        menuItem.textContent = item.label;
+        menuItem.style.cssText = `
+          padding: 8px 16px;
+          cursor: pointer;
+          color: #cccccc;
+        `;
+        menuItem.onmouseenter = () => menuItem.style.background = '#094771';
+        menuItem.onmouseleave = () => menuItem.style.background = 'transparent';
+        
+        menuItem.onclick = async () => {
+          document.body.removeChild(aiMenu);
+          await handleAIAction(item.action, code, language);
+        };
+        
+        aiMenu.appendChild(menuItem);
+      });
+      
+      // 点击其他地方关闭菜单
+      const closeMenu = (e) => {
+        if (!aiMenu.contains(e.target)) {
+          if (document.body.contains(aiMenu)) {
+            document.body.removeChild(aiMenu);
+          }
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      
+      // 显示在编辑器中央
+      aiMenu.style.left = '50%';
+      aiMenu.style.top = '40%';
+      aiMenu.style.transform = 'translate(-50%, -50%)';
+      
+      document.body.appendChild(aiMenu);
+      
+      setTimeout(() => document.addEventListener('click', closeMenu), 100);
+    }
+
+    // 处理 AI 功能
+    async function handleAIAction(action, code, language) {
+      if (!currentFile) {
+        alert('请先打开一个文件');
+        return;
+      }
+      
+      const loadingMsg = {
+        explain: '🤔 AI 正在解释代码...',
+        refactor: '🔧 AI 正在分析重构方案...',
+        fixBug: '🐛 AI 正在修复 Bug...',
+        optimize: '⚡ AI 正在优化代码...',
+        generateTests: '🧪 AI 正在生成测试...',
+        translate: '🌐 AI 正在翻译代码...'
+      };
+      
+      const result = await window.electronAPI.ai[action](code, language);
+      
+      if (result.success) {
+        // 在新标签页显示 AI 结果
+        const resultContent = result.result.explanation || result.result.suggestion || 
+                            result.result.fix || result.result.optimization || 
+                            result.result.tests || result.result.translatedCode || 
+                            result.result.content || '';
+        
+        const resultFile = {
+          name: `AI-${action}-${Date.now()}.md`,
+          path: `AI-${action}-result.md`,
+          content: `# AI ${action} 结果\n\n**原始代码:**\n\`\`\`${language}\n${code}\n\`\`\`\n\n**结果:**\n${resultContent}`,
+          language: 'markdown'
+        };
+        
+        openFiles.push(resultFile);
+        activeFileIndex = openFiles.length - 1;
+        updateEditor();
+        renderTabs();
+      } else {
+        alert('AI 操作失败: ' + result.error);
+      }
     }
 
     // Update status
@@ -810,6 +1136,78 @@
       }
       
       updateStatus(null, 'JavaScript');
+    }
+
+    // 新建项目
+    let selectedTemplate = null;
+    
+    async function showNewProjectDialog() {
+      const dialog = document.getElementById('new-project-dialog');
+      const templateList = document.getElementById('template-list');
+      
+      try {
+        const templates = await window.electronAPI.templates.list();
+        
+        templateList.innerHTML = templates.map(t => `
+          <div class="template-card" data-id="${t.id}" onclick="selectTemplate('${t.id}')" style="padding:15px;background:#333;border-radius:5px;cursor:pointer;border:2px solid transparent;">
+            <div style="font-weight:bold;color:#fff;">${t.name}</div>
+            <div style="font-size:12px;color:#888;margin-top:5px;">${t.description}</div>
+          </div>
+        `).join('');
+        
+        dialog.style.display = 'flex';
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    }
+
+    window.selectTemplate = function(templateId) {
+      selectedTemplate = templateId;
+      document.querySelectorAll('.template-card').forEach(el => {
+        el.style.borderColor = el.dataset.id === templateId ? '#007acc' : 'transparent';
+      });
+    }
+
+    window.closeNewProjectDialog = function() {
+      document.getElementById('new-project-dialog').style.display = 'none';
+      selectedTemplate = null;
+    }
+
+    window.createNewProject = async function() {
+      const projectName = document.getElementById('new-project-name').value.trim();
+      if (!projectName) {
+        alert('请输入项目名称');
+        return;
+      }
+      if (!selectedTemplate) {
+        alert('请选择模板');
+        return;
+      }
+
+      try {
+        const folderResult = await window.electronAPI.openFolderDialog();
+        if (!folderResult) return;
+
+        const result = await window.electronAPI.templates.create(
+          selectedTemplate,
+          projectName,
+          folderResult.folderPath
+        );
+
+        if (result.success) {
+          // 打开创建的项目
+          currentFolder = result.path;
+          renderFileTree(folderResult.tree);
+          showEditor();
+          closeNewProjectDialog();
+          alert('项目创建成功！');
+        } else {
+          alert('创建失败: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error creating project:', error);
+        alert('创建失败: ' + error.message);
+      }
     }
 
     // Open folder
@@ -945,6 +1343,12 @@
     btnSave.addEventListener('click', saveCurrentFile);
     btnNew.addEventListener('click', newFile);
     btnWelcomeOpen.addEventListener('click', openFolder);
+
+    // 新建项目功能
+    const btnNewProject = document.getElementById('btn-new-project');
+    if (btnNewProject) {
+      btnNewProject.addEventListener('click', showNewProjectDialog);
+    }
 
     // Menu events from main process
     window.electronAPI.onMenuOpenFile(() => openFile());
@@ -1470,6 +1874,22 @@
     document.querySelector('.toolbar').appendChild(pluginToolbarBtn);
     pluginToolbarBtn.addEventListener('click', showPluginSettings);
 
+    // Add Terminal button to toolbar
+    const terminalToolbarBtn = document.createElement('button');
+    terminalToolbarBtn.id = 'btn-terminal';
+    terminalToolbarBtn.textContent = '📟 终端';
+    terminalToolbarBtn.style.marginLeft = '8px';
+    document.querySelector('.toolbar').appendChild(terminalToolbarBtn);
+    terminalToolbarBtn.addEventListener('click', toggleTerminalPanel);
+
+    // Add Debug button to toolbar
+    const debugToolbarBtn = document.createElement('button');
+    debugToolbarBtn.id = 'btn-debug';
+    debugToolbarBtn.textContent = '🐛 调试';
+    debugToolbarBtn.style.marginLeft = '8px';
+    document.querySelector('.toolbar').appendChild(debugToolbarBtn);
+    debugToolbarBtn.addEventListener('click', toggleDebugPanel);
+
     // Check AI configuration
     async function checkAIConfig() {
       try {
@@ -1479,6 +1899,414 @@
       } catch (e) {
         console.error('Failed to check AI config:', e);
       }
+    }
+
+    // ========== 终端功能 ==========
+    const terminalPanelContainer = document.getElementById('terminal-panel-container');
+    const terminalTabs = document.getElementById('terminal-tabs');
+    const terminalPanel = document.getElementById('terminal-panel');
+    let terminalPanelVisible = false;
+
+    // 切换终端面板显示
+    function toggleTerminalPanel() {
+      terminalPanelVisible = !terminalPanelVisible;
+      terminalPanelContainer.style.display = terminalPanelVisible ? 'block' : 'none';
+      
+      if (terminalPanelVisible && !window.terminalList) {
+        // 首次打开时创建终端
+        createNewTerminal();
+      }
+    }
+
+    // 创建新终端
+    async function createNewTerminal() {
+      try {
+        const result = await window.electronAPI.terminal.create();
+        
+        if (result.success) {
+          const termId = result.id;
+          
+          // 动态加载 xterm
+          if (!window.Terminal) {
+            await loadXtermJS();
+          }
+          
+          const term = new window.Terminal({
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Consolas, "Courier New", monospace',
+            theme: {
+              background: '#1e1e1e',
+              foreground: '#cccccc',
+              cursor: '#ffffff'
+            },
+            rows: 20,
+            cols: 80
+          });
+          
+          // 创建终端容器
+          const termDiv = document.createElement('div');
+          termDiv.id = `term-${termId}`;
+          termDiv.style.width = '100%';
+          termDiv.style.height = '100%';
+          termDiv.style.display = 'none';
+          terminalPanel.appendChild(termDiv);
+          
+          term.open(termDiv);
+          termDiv.style.display = 'block';
+          
+          // 终端输入
+          term.onData((data) => {
+            window.electronAPI.terminal.write(termId, data);
+          });
+          
+          // 接收数据
+          window.electronAPI.terminal.onData(termId, (data) => {
+            term.write(data);
+          });
+          
+          // 接收退出
+          window.electronAPI.terminal.onExit(termId, (exitCode, signal) => {
+            term.write(`\r\n[进程已退出，退出码: ${exitCode}]\r\n`);
+          });
+          
+          // 保存终端实例
+          if (!window.terminalList) window.terminalList = new Map();
+          window.terminalList.set(termId, term);
+          
+          // 创建标签
+          createTerminalTab(termId);
+          
+          // 切换到新终端
+          switchTerminal(termId);
+        }
+      } catch (err) {
+        console.error('创建终端失败:', err);
+      }
+    }
+
+    // 动态加载 xterm.js
+    async function loadXtermJS() {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '../node_modules/xterm/lib/xterm.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    // 创建终端标签
+    function createTerminalTab(termId) {
+      const tab = document.createElement('div');
+      tab.className = 'terminal-tab';
+      tab.id = `tab-${termId}`;
+      tab.style.cssText = 'padding: 6px 12px; background: var(--bg-tertiary); border: none; border-radius: 4px 4px 0 0; cursor: pointer; display: flex; align-items: center; gap: 8px;';
+      
+      const label = document.createElement('span');
+      label.textContent = `终端 ${termId.replace('term_', '')}`;
+      
+      const closeBtn = document.createElement('span');
+      closeBtn.textContent = '×';
+      closeBtn.style.cssText = 'font-size: 16px; font-weight: bold;';
+      closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeTerminal(termId);
+      };
+      
+      tab.appendChild(label);
+      tab.appendChild(closeBtn);
+      tab.onclick = () => switchTerminal(termId);
+      
+      // 插入到新建按钮之前
+      const newBtn = document.getElementById('terminal-new-btn');
+      terminalTabs.insertBefore(tab, newBtn);
+    }
+
+    // 切换终端
+    function switchTerminal(termId) {
+      // 隐藏所有终端
+      const termInstances = window.terminalList || new Map();
+      termInstances.forEach((term, id) => {
+        const el = document.getElementById(`term-${id}`);
+        if (el) el.style.display = 'none';
+      });
+      
+      // 取消所有标签激活
+      document.querySelectorAll('.terminal-tab').forEach(t => {
+        t.style.background = 'var(--bg-tertiary)';
+      });
+      
+      // 显示选中的终端
+      const termEl = document.getElementById(`term-${termId}`);
+      if (termEl) termEl.style.display = 'block';
+      
+      // 激活标签
+      const tab = document.getElementById(`tab-${termId}`);
+      if (tab) tab.style.background = 'var(--bg-secondary)';
+    }
+
+    // 关闭终端
+    async function closeTerminal(termId) {
+      try {
+        await window.electronAPI.terminal.close(termId);
+        
+        // 清理UI
+        const termEl = document.getElementById(`term-${termId}`);
+        if (termEl) termEl.remove();
+        
+        const tab = document.getElementById(`tab-${termId}`);
+        if (tab) tab.remove();
+        
+        // 清理实例
+        const termInstances = window.terminalList || new Map();
+        const term = termInstances.get(termId);
+        if (term) {
+          term.dispose();
+          termInstances.delete(termId);
+        }
+        
+        // 切换到其他终端
+        const remaining = termInstances.keys().next().value;
+        if (remaining) {
+          switchTerminal(remaining);
+        } else {
+          terminalPanelContainer.style.display = 'none';
+          terminalPanelVisible = false;
+        }
+      } catch (err) {
+        console.error('关闭终端失败:', err);
+      }
+    }
+
+    // 新建终端按钮事件
+    const terminalNewBtn = document.getElementById('terminal-new-btn');
+    if (terminalNewBtn) {
+      terminalNewBtn.addEventListener('click', createNewTerminal);
+    }
+
+    // ========== 调试功能 ==========
+    const debugPanel = document.getElementById('debug-panel');
+    const debugStartBtn = document.getElementById('debug-start');
+    const debugStopBtn = document.getElementById('debug-stop');
+    const debugContinueBtn = document.getElementById('debug-continue');
+    const debugPauseBtn = document.getElementById('debug-pause');
+    const debugStepInBtn = document.getElementById('debug-step-in');
+    const debugStepOverBtn = document.getElementById('debug-step-over');
+    const debugStepOutBtn = document.getElementById('debug-step-out');
+    const debugCloseBtn = document.getElementById('debug-close');
+    const debugConsoleInput = document.getElementById('debug-console-input');
+    const debugEvalBtn = document.getElementById('debug-eval');
+    const debugCallstack = document.getElementById('debug-callstack');
+    const debugVariables = document.getElementById('debug-variables');
+    const debugBreakpoints = document.getElementById('debug-breakpoints');
+    const debugConsole = document.getElementById('debug-console');
+
+    let debugPanelVisible = false;
+    let currentDebugSession = null;
+
+    // 切换调试面板
+    function toggleDebugPanel() {
+      debugPanelVisible = !debugPanelVisible;
+      debugPanel.style.display = debugPanelVisible ? 'flex' : 'none';
+    }
+
+    // 更新调试按钮状态
+    function updateDebugButtons(state) {
+      const running = state === 'running';
+      const stopped = state === 'stopped' || state === 'terminated';
+      
+      debugStartBtn.disabled = !stopped;
+      debugStopBtn.disabled = stopped;
+      debugContinueBtn.disabled = running || stopped;
+      debugPauseBtn.disabled = running || stopped;
+      debugStepInBtn.disabled = running || stopped;
+      debugStepOverBtn.disabled = running || stopped;
+      debugStepOutBtn.disabled = running || stopped;
+    }
+
+    // 添加调试日志
+    function addDebugLog(message, type = 'info') {
+      const line = document.createElement('div');
+      line.style.color = type === 'error' ? '#ff6b6b' : type === 'warn' ? '#ffd93d' : '#ccc';
+      line.textContent = `> ${message}`;
+      debugConsole.appendChild(line);
+      debugConsole.scrollTop = debugConsole.scrollHeight;
+    }
+
+    // 刷新调用堆栈
+    async function refreshCallStack() {
+      if (!currentDebugSession) return;
+      const stack = await window.electronAPI.debug.getStack(currentDebugSession);
+      debugCallstack.innerHTML = stack.map(frame => 
+        `<div style="padding: 4px; cursor: pointer; hover: background: var(--bg-secondary);">
+          ${frame.name} (${frame.source}:${frame.line})
+        </div>`
+      ).join('') || '<p style="color: var(--text-secondary); font-size: 12px;">无</p>';
+    }
+
+    // 刷新变量
+    async function refreshVariables() {
+      if (!currentDebugSession) return;
+      const locals = await window.electronAPI.debug.getVariables(currentDebugSession, 'local');
+      const globals = await window.electronAPI.debug.getVariables(currentDebugSession, 'global');
+      
+      let html = '<div style="font-weight: bold; margin-bottom: 4px;">局部变量</div>';
+      html += locals.map(v => 
+        `<div style="padding: 2px 4px; font-size: 12px;">
+          <span style="color: #9cdcfe;">${v.name}</span>: <span style="color: #ce9178;">${v.value}</span>
+        </div>`
+      ).join('') || '<p style="color: var(--text-secondary); font-size: 12px;">无</p>';
+      
+      html += '<div style="font-weight: bold; margin: 8px 0 4px;">全局变量</div>';
+      html += globals.map(v => 
+        `<div style="padding: 2px 4px; font-size: 12px;">
+          <span style="color: #9cdcfe;">${v.name}</span>: <span style="color: #ce9178;">${v.value}</span>
+        </div>`
+      ).join('') || '<p style="color: var(--text-secondary); font-size: 12px;">无</p>';
+      
+      debugVariables.innerHTML = html;
+    }
+
+    // 刷新断点
+    async function refreshBreakpoints() {
+      if (!currentDebugSession) return;
+      const bps = await window.electronAPI.debug.getBreakpoints(currentDebugSession);
+      debugBreakpoints.innerHTML = bps.length > 0 ? 
+        bps.map(bp => 
+          `<div style="padding: 4px; font-size: 12px;">
+            ${bp.file}: ${bp.lines.join(', ')}
+          </div>`
+        ).join('') : '<p style="color: var(--text-secondary); font-size: 12px;">无断点</p>';
+    }
+
+    // 启动调试
+    if (debugStartBtn) {
+      debugStartBtn.addEventListener('click', async () => {
+        if (!currentFile) {
+          alert('请先打开一个文件');
+          return;
+        }
+        addDebugLog('启动调试...');
+        const result = await window.electronAPI.debug.start({
+          runtime: 'node',
+          program: currentFile
+        });
+        if (result.success) {
+          currentDebugSession = result.sessionId;
+          updateDebugButtons('paused');
+          addDebugLog('调试已启动，会话: ' + result.sessionId);
+          await refreshCallStack();
+          await refreshVariables();
+        } else {
+          addDebugLog('启动失败: ' + result.error, 'error');
+        }
+      });
+    }
+
+    // 停止调试
+    if (debugStopBtn) {
+      debugStopBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.stop(currentDebugSession);
+          currentDebugSession = null;
+          updateDebugButtons('stopped');
+          addDebugLog('调试已停止');
+        }
+      });
+    }
+
+    // 继续
+    if (debugContinueBtn) {
+      debugContinueBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.continue(currentDebugSession);
+          updateDebugButtons('running');
+          addDebugLog('继续执行...');
+        }
+      });
+    }
+
+    // 暂停
+    if (debugPauseBtn) {
+      debugPauseBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.pause(currentDebugSession);
+          updateDebugButtons('paused');
+          addDebugLog('已暂停');
+          await refreshCallStack();
+          await refreshVariables();
+        }
+      });
+    }
+
+    // 单步进入
+    if (debugStepInBtn) {
+      debugStepInBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.stepIn(currentDebugSession);
+          updateDebugButtons('paused');
+          addDebugLog('单步进入');
+          await refreshCallStack();
+          await refreshVariables();
+        }
+      });
+    }
+
+    // 单步跳过
+    if (debugStepOverBtn) {
+      debugStepOverBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.stepOver(currentDebugSession);
+          updateDebugButtons('paused');
+          addDebugLog('单步跳过');
+          await refreshCallStack();
+          await refreshVariables();
+        }
+      });
+    }
+
+    // 单步退出
+    if (debugStepOutBtn) {
+      debugStepOutBtn.addEventListener('click', async () => {
+        if (currentDebugSession) {
+          await window.electronAPI.debug.stepOut(currentDebugSession);
+          updateDebugButtons('paused');
+          addDebugLog('单步退出');
+          await refreshCallStack();
+          await refreshVariables();
+        }
+      });
+    }
+
+    // 关闭调试面板
+    if (debugCloseBtn) {
+      debugCloseBtn.addEventListener('click', () => {
+        debugPanel.style.display = 'none';
+        debugPanelVisible = false;
+      });
+    }
+
+    // 评估表达式
+    if (debugEvalBtn && debugConsoleInput) {
+      debugEvalBtn.addEventListener('click', async () => {
+        const expr = debugConsoleInput.value.trim();
+        if (!expr || !currentDebugSession) return;
+        
+        const result = await window.electronAPI.debug.evaluate(currentDebugSession, expr);
+        if (result.success) {
+          addDebugLog(`${expr} = ${result.result}`);
+        } else {
+          addDebugLog(`${expr} = ${result.error}`, 'error');
+        }
+        debugConsoleInput.value = '';
+      });
+      
+      debugConsoleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          debugEvalBtn.click();
+        }
+      });
     }
 
     // Show AI panel
@@ -2129,6 +2957,48 @@
     });
 
     console.log('右键菜单功能已初始化');
+
+    // Git 面板功能
+    let gitPanelInitialized = false;
+    let currentSidebarContent = null;
+    
+    window.toggleGitPanel = async function() {
+      const sidebar = document.querySelector('.sidebar');
+      const fileTree = document.getElementById('file-tree');
+      
+      if (!gitPanelInitialized) {
+        // 首次加载 Git 面板
+        if (typeof initGitPanel === 'function') {
+          await initGitPanel(window.electronAPI, fileTree);
+          gitPanelInitialized = true;
+        }
+      }
+      
+      // 切换显示
+      if (sidebar.dataset.currentPanel === 'git') {
+        // 切回文件浏览器
+        sidebar.dataset.currentPanel = 'file';
+        document.getElementById('sidebar-title').textContent = t('fileExplorer');
+        fileTree.style.display = 'block';
+        if (window.fileExplorer && window.fileExplorer.render) {
+          fileTree.innerHTML = '';
+          window.fileExplorer.render(fileTree);
+        }
+      } else {
+        // 切换到 Git 面板
+        sidebar.dataset.currentPanel = 'git';
+        document.getElementById('sidebar-title').textContent = 'Git';
+        fileTree.style.display = 'block';
+        if (window.gitPanel && window.gitPanel.refresh) {
+          await window.gitPanel.refresh();
+        }
+      }
+    };
+
+    // 动态加载 Git 面板
+    const gitScript = document.createElement('script');
+    gitScript.src = 'git-panel.js';
+    document.head.appendChild(gitScript);
 
     console.log('OpenDev IDE initialized');
   </script>

@@ -29,24 +29,116 @@
 - [x] 2.2.4 commands API - vscode-commands.js
 - [x] 2.2.5 languages API - vscode-languages.js
 
+### Phase 3: 生产力增强 (进行中)
+
+#### 3.5 AI代码增强 (调度 主导) ✅ 已完成
+- [x] 智能补全 - getCompletion
+- [x] 代码解释 - explainCode
+- [x] 重构建议 - suggestRefactoring
+- [x] 代码生成 - generateCode
+- [x] Bug修复 - fixBug
+- [x] 代码优化 - optimizeCode
+- [x] 单元测试生成 - generateTests
+- [x] 代码翻译 - translateCode
+- [x] Monaco Editor集成 - ai-completion-provider.js
+
 #### 2.3 插件市场 (桥王 主导) ✅ 已完成
 - [x] 2.3.1 OpenVSX API 对接 - openvsx-client.js
 - [x] 2.3.2 插件搜索 UI
 - [x] 2.3.3 插件安装/卸载
 
-#### 2.5 增强功能 (进行中)
-- [ ] 2.5.1 插件状态持久化
-  - 重启后保持插件启用/禁用状态
-  - 存储位置: `~/.opendev/plugin-states.json`
-- [ ] 2.5.2 插件配置存储
-  - 插件自定义配置存储
-  - 存储位置: `~/.opendev/plugin-configs/`
-- [ ] 2.5.3 插件依赖解析
-  - 读取插件 package.json 依赖
-  - 自动检查并安装依赖
-- [ ] 2.5.4 插件自动更新检查
-  - 定期检查插件更新
-  - 提示用户新版本
+#### 2.5 增强功能 ✅ 已完成
+- [x] 2.5.1 插件状态持久化
+- [x] 2.5.2 插件配置存储
+- [x] 2.5.3 插件依赖解析
+- [x] 2.5.4 插件自动更新检查
+
+---
+
+### Phase 3: 生产力增强 (规划中)
+
+#### 3.1 内置终端 (小锤 主导)
+目标：集成终端支持，让用户可以直接在 IDE 中运行命令
+
+技术选型：
+- 终端库：xterm.js（VSCode 同款）
+- 后端：node-pty（创建伪终端）
+
+文件变更：
+- 新建 src/main/terminal.js - 终端管理器
+- 新建 src/renderer/terminal.js - 终端前端
+- 修改 src/main/main.js - IPC 集成
+- 修改 src/main/preload.js - API 暴露
+- 修改 src/renderer/index.html - 终端 UI
+
+功能：
+- 终端创建/关闭
+- 命令输入/输出
+- 多终端标签
+- 命令历史
+- 终端调整大小
+
+#### 3.2 Git 面板 (桥王 主导)
+目标：集成 Git 功能，无需离开 IDE 即可完成版本控制
+
+技术选型：
+- Git 操作：simple-git
+- diff 视图：diff2html
+
+文件变更：
+- 新建 src/main/git-manager.js
+- 新建 src/renderer/git-panel.js
+- 修改 src/main/main.js
+- 修改 src/main/preload.js
+
+功能：
+- 仓库状态显示
+- 文件变更列表
+- 提交/推送/拉取
+- 分支管理
+- 提交历史
+- Diff 视图
+
+#### 3.3 调试支持 (小锤 主导)
+目标：支持断点调试、变量查看
+
+技术选型：
+- 调试协议：Debug Adapter Protocol (DAP)
+
+文件变更：
+- 新建 src/main/debugger.js
+- 新建 src/renderer/debug-panel.js
+
+功能：
+- 断点管理
+- 调用堆栈查看
+- 变量检查
+- 调试控制（继续/暂停/单步）
+- Debug Console
+
+#### 3.4 项目模板 (桥王 主导)
+目标：快速创建项目脚手架
+
+模板列表：
+- React (React + Vite)
+- Vue (Vue 3 + Vite)
+- Node.js (Express)
+- Python (Flask)
+- 空白项目
+
+文件变更：
+- 新建 src/main/project-templates.js
+- 修改 src/renderer/index.html
+
+#### 3.5 AI 代码增强 (调度 主导)
+目标：增强代码补全和辅助功能
+
+功能：
+- 智能补全（基于上下文）
+- 代码解释
+- 重构建议
+- 代码生成
+- Bug 修复
 
 ---
 
