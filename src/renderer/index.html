@@ -24,6 +24,18 @@
       --border: #3c3c3c;
     }
 
+    /* Light Theme */
+    [data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f3f3f3;
+      --bg-tertiary: #e8e8e8;
+      --text-primary: #333333;
+      --text-secondary: #6e6e6e;
+      --accent: #0078d4;
+      --accent-hover: #106ebe;
+      --border: #d4d4d4;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-primary);
@@ -373,6 +385,176 @@
       cursor: not-allowed;
     }
 
+    /* AI Chat Markdown & Code Highlight */
+    .ai-message.assistant .markdown-content {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .ai-message.assistant .markdown-content h1,
+    .ai-message.assistant .markdown-content h2,
+    .ai-message.assistant .markdown-content h3 {
+      margin: 8px 0 4px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .ai-message.assistant .markdown-content p {
+      margin: 6px 0;
+    }
+    
+    .ai-message.assistant .markdown-content pre {
+      background: #1a1a1a;
+      border-radius: 4px;
+      padding: 8px;
+      margin: 8px 0;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    
+    .ai-message.assistant .markdown-content code {
+      font-family: 'Consolas', 'Monaco', monospace;
+      background: #2d2d2d;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    
+    .ai-message.assistant .markdown-content pre code {
+      background: none;
+      padding: 0;
+    }
+    
+    .ai-message.assistant .markdown-content ul,
+    .ai-message.assistant .markdown-content ol {
+      margin: 6px 0;
+      padding-left: 20px;
+    }
+    
+    .ai-message.assistant .markdown-content li {
+      margin: 3px 0;
+    }
+    
+    .ai-message.assistant .markdown-content a {
+      color: #4da6ff;
+      text-decoration: none;
+    }
+    
+    .ai-message.assistant .markdown-content a:hover {
+      text-decoration: underline;
+    }
+    
+    .ai-message.assistant .markdown-content img {
+      max-width: 100%;
+      border-radius: 4px;
+      margin: 8px 0;
+    }
+    
+    .ai-message.assistant .markdown-content hr {
+      border: none;
+      border-top: 1px solid #3c3c3c;
+      margin: 12px 0;
+    }
+    
+    .ai-message.assistant .markdown-content strong {
+      font-weight: bold;
+      color: #fff;
+    }
+    
+    .ai-message.assistant .markdown-content em {
+      font-style: italic;
+    }
+
+    /* AI Loading Animation */
+    .ai-loading {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      align-self: flex-start;
+    }
+    
+    .ai-loading span {
+      width: 8px;
+      height: 8px;
+      background: #888;
+      border-radius: 50%;
+      animation: ai-bounce 1.4s infinite ease-in-out both;
+    }
+    
+    .ai-loading span:nth-child(1) { animation-delay: -0.32s; }
+    .ai-loading span:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes ai-bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    /* AI Templates Panel */
+    .ai-templates-btn {
+      padding: 4px 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .ai-templates-btn:hover {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .ai-templates-panel {
+      position: absolute;
+      bottom: 70px;
+      left: 12px;
+      right: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      z-index: 1001;
+    }
+    
+    .ai-templates-panel.show {
+      display: block;
+    }
+    
+    .ai-template-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    
+    .ai-template-item:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* AI History Panel */
+    .ai-history-btn {
+      padding: 4px 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+    
+    .ai-history-btn:hover {
+      background: #5a1d1d;
+      color: #ff8888;
+    }
+
     /* Modal */
     .modal {
       position: fixed;
@@ -517,8 +699,9 @@
     <!-- Main content -->
     <div class="main-content">
       <!-- Sidebar -->
-      <div class="sidebar">
+      <div class="sidebar" id="main-sidebar">
         <div class="sidebar-header">
+          <button id="btn-sidebar-toggle" title="折叠侧边栏" style="padding:2px 6px;margin-right:8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border);border-radius:3px;cursor:pointer;">◀</button>
           <span id="sidebar-title">文件浏览器</span>
           <button id="btn-git-panel" onclick="toggleGitPanel()" title="Git" style="margin-left:auto;padding:2px 6px;font-size:12px;">Git</button>
         </div>
@@ -631,16 +814,55 @@
       <div class="status-item" id="status-file">📄 未打开文件</div>
       <div class="status-item" id="status-encoding">UTF-8</div>
       <div class="status-item" id="status-language">JavaScript</div>
-      <div class="status-item" id="status-ai">🤖 AI: 未配置</div>
+      <div class="status-item" id="status-lines">行 1, 列 1</div>
+      <div class="status-item" id="status-size">-</div>
+      <div class="status-item" id="status-git">📀 无Git</div>
+      <div class="status-item" id="status-shortcuts" title="Ctrl+K Ctrl+S 打开快捷键" style="cursor: pointer;">⌨️ 快捷键</div>
+      <div class="status-item" id="status-ai" style="margin-left: auto;">🤖 AI: 未配置</div>
     </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcuts-modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3>⌨️ 快捷键</h3>
+      <div style="max-height: 400px; overflow-y: auto; padding: 8px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+O</strong></td><td style="padding: 8px;">打开文件</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+S</strong></td><td style="padding: 8px;">保存文件</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+N</strong></td><td style="padding: 8px;">新建文件</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+W</strong></td><td style="padding: 8px;">关闭当前标签</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+Tab</strong></td><td style="padding: 8px;">切换标签</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+`</strong></td><td style="padding: 8px;">切换终端</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+Shift+P</strong></td><td style="padding: 8px;">命令面板</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>F5</strong></td><td style="padding: 8px;">开始调试</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Shift+F5</strong></td><td style="padding: 8px;">停止调试</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>F10</strong></td><td style="padding: 8px;">单步跳过</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>F11</strong></td><td style="padding: 8px;">单步进入</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+F</strong></td><td style="padding: 8px;">查找</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 8px;"><strong>Ctrl+H</strong></td><td style="padding: 8px;">替换</td></tr>
+          <tr><td style="padding: 8px;"><strong>Ctrl+K Ctrl+S</strong></td><td style="padding: 8px;">打开快捷键</td></tr>
+        </table>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+        <button id="shortcuts-close" style="padding: 6px 12px;">关闭</button>
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- AI Chat Panel -->
   <div id="ai-panel" class="ai-panel" style="display: none;">
     <div class="ai-panel-header">
       <span>🤖 AI 助手</span>
-      <button id="ai-close" class="ai-btn-close">×</button>
+      <div>
+        <button id="ai-templates-btn" class="ai-templates-btn" title="提示词模板">📝 模板</button>
+        <button id="ai-history-btn" class="ai-history-btn" title="历史记录">📜</button>
+        <button id="ai-close" class="ai-btn-close">×</button>
+      </div>
     </div>
+    <!-- 提示词模板面板 -->
+    <div id="ai-templates-panel" class="ai-templates-panel"></div>
     <div class="ai-messages" id="ai-messages"></div>
     <div class="ai-input-area">
       <textarea id="ai-input" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"></textarea>
@@ -848,6 +1070,11 @@
 
         console.log('Monaco Editor initialized');
         
+        // 添加光标位置变化监听
+        editor.onDidChangeCursorPosition((e) => {
+          updateCursorStatus(e.position.lineNumber, e.position.column);
+        });
+        
         // 添加断点装饰器
         if (editor) {
           editor.onMouseDown((e) => {
@@ -1050,9 +1277,53 @@
     }
 
     // Update status
-    function updateStatus(filePath, language) {
+    function updateStatus(filePath, language, content) {
       statusFile.textContent = '📄 ' + (filePath ? filePath.split(/[\\/]/).pop() : '未打开文件');
       statusLanguage.textContent = language || 'JavaScript';
+      
+      // 文件大小
+      if (content) {
+        const size = new Blob([content]).size;
+        if (size < 1024) {
+          statusSize.textContent = size + ' B';
+        } else if (size < 1024 * 1024) {
+          statusSize.textContent = (size / 1024).toFixed(1) + ' KB';
+        } else {
+          statusSize.textContent = (size / 1024 / 1024).toFixed(1) + ' MB';
+        }
+      } else {
+        statusSize.textContent = '-';
+      }
+    }
+
+    // 更新光标位置状态
+    function updateCursorStatus(line, column) {
+      document.getElementById('status-lines').textContent = `行 ${line}, 列 ${column}`;
+    }
+
+    // Git状态元素
+    const statusGit = document.getElementById('status-git');
+
+    // 获取Git分支
+    async function updateGitStatus() {
+      try {
+        const result = await window.electronAPI.git.status();
+        if (result.success && result.isRepo) {
+          const branch = result.current || 'main';
+          let status = '📀 ' + branch;
+          if (result.modified && result.modified.length > 0) {
+            status += ' ⚠️';
+          }
+          if (result.staged && result.staged.length > 0) {
+            status += ' 📝';
+          }
+          statusGit.textContent = status;
+        } else {
+          statusGit.textContent = '📀 无Git';
+        }
+      } catch (e) {
+        statusGit.textContent = '📀 无Git';
+      }
     }
 
     // Get language from file extension
@@ -1098,7 +1369,8 @@
             editor.setValue(result.content);
           }
           
-          updateStatus(currentFile, getLanguage(currentFile));
+          updateStatus(currentFile, getLanguage(currentFile), result.content);
+          updateGitStatus(); // 更新Git状态
           console.log('File opened:', currentFile);
         }
       } catch (error) {
@@ -1859,6 +2131,47 @@
       document.getElementById('lang-select').value = currentLang;
     });
 
+    // 添加主题选择器
+    const themeSelector = document.createElement('div');
+    themeSelector.className = 'theme-selector';
+    themeSelector.style.cssText = 'display: flex; align-items: center; gap: 4px; margin-left: 12px;';
+    themeSelector.innerHTML = `
+      <button id="theme-toggle" title="切换主题" style="padding: 4px 8px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;">
+        🌙
+      </button>
+    `;
+    document.querySelector('.toolbar').appendChild(themeSelector);
+
+    // 主题切换功能
+    let currentTheme = localStorage.getItem('theme') || 'dark';
+    function setTheme(theme) {
+      currentTheme = theme;
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.getElementById('theme-toggle').textContent = '☀️';
+        // 同时更新 Monaco
+        if (monaco && monaco.editor) {
+          monaco.editor.setTheme('vs');
+        }
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        document.getElementById('theme-toggle').textContent = '🌙';
+        // 同时更新 Monaco
+        if (monaco && monaco.editor) {
+          monaco.editor.setTheme('vs-dark');
+        }
+      }
+      localStorage.setItem('theme', theme);
+    }
+    
+    // 初始化主题
+    setTheme(currentTheme);
+
+    // 主题切换按钮事件
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    });
+
     // Add AI button to toolbar
     const aiToolbarBtn = document.createElement('button');
     aiToolbarBtn.id = 'btn-ai';
@@ -1881,6 +2194,39 @@
     terminalToolbarBtn.style.marginLeft = '8px';
     document.querySelector('.toolbar').appendChild(terminalToolbarBtn);
     terminalToolbarBtn.addEventListener('click', toggleTerminalPanel);
+
+    // ========== 侧边栏折叠功能 ==========
+    const sidebarToggleBtn = document.getElementById('btn-sidebar-toggle');
+    const mainSidebar = document.getElementById('main-sidebar');
+    let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+    function toggleSidebar() {
+      sidebarCollapsed = !sidebarCollapsed;
+      if (sidebarCollapsed) {
+        mainSidebar.style.width = '0';
+        mainSidebar.style.overflow = 'hidden';
+        sidebarToggleBtn.textContent = '▶';
+        mainSidebar.style.transition = 'width 0.2s ease';
+      } else {
+        mainSidebar.style.width = '250px';
+        mainSidebar.style.overflow = '';
+        sidebarToggleBtn.textContent = '◀';
+        mainSidebar.style.transition = 'width 0.2s ease';
+      }
+      localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+    }
+
+    // 初始化侧边栏状态
+    if (sidebarCollapsed) {
+      mainSidebar.style.width = '0';
+      mainSidebar.style.overflow = 'hidden';
+      sidebarToggleBtn.textContent = '▶';
+    }
+
+    // 侧边栏折叠按钮事件
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', toggleSidebar);
+    }
 
     // Add Debug button to toolbar
     const debugToolbarBtn = document.createElement('button');
@@ -2309,6 +2655,81 @@
       });
     }
 
+    // ========== 全局键盘快捷键 ==========
+    const shortcutsModal = document.getElementById('shortcuts-modal');
+    const shortcutsClose = document.getElementById('shortcuts-close');
+
+    // 快捷键模态框关闭
+    if (shortcutsClose) {
+      shortcutsClose.addEventListener('click', () => {
+        shortcutsModal.style.display = 'none';
+      });
+    }
+
+    // 快捷键点击显示
+    const statusShortcuts = document.getElementById('status-shortcuts');
+    if (statusShortcuts) {
+      statusShortcuts.addEventListener('click', () => {
+        shortcutsModal.style.display = 'flex';
+      });
+    }
+
+    // 点击模态框外部关闭
+    if (shortcutsModal) {
+      shortcutsModal.addEventListener('click', (e) => {
+        if (e.target === shortcutsModal) {
+          shortcutsModal.style.display = 'none';
+        }
+      });
+    }
+
+    // 键盘快捷键处理
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+K Ctrl+S - 显示快捷键
+      if (e.ctrlKey && e.key === 'K') {
+        e.preventDefault();
+        if (e.shiftKey || !e.ctrlKey) {
+          shortcutsModal.style.display = 'flex';
+        }
+      }
+      
+      // Ctrl+` - 切换终端
+      if (e.ctrlKey && e.key === '`') {
+        e.preventDefault();
+        toggleTerminalPanel();
+      }
+      
+      // Ctrl+Shift+P - 命令面板（暂显示AI面板）
+      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        showAIPanel();
+      }
+
+      // F5 - 开始调试
+      if (e.key === 'F5' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('debug-start')?.click();
+      }
+
+      // Shift+F5 - 停止调试
+      if (e.key === 'F5' && e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('debug-stop')?.click();
+      }
+
+      // F10 - 单步跳过
+      if (e.key === 'F10') {
+        e.preventDefault();
+        document.getElementById('debug-step-over')?.click();
+      }
+
+      // F11 - 单步进入
+      if (e.key === 'F11') {
+        e.preventDefault();
+        document.getElementById('debug-step-in')?.click();
+      }
+    });
+
     // Show AI panel
     function showAIPanel() {
       if (!aiConfigured) {
@@ -2323,14 +2744,161 @@
       aiPanel.style.display = 'none';
     }
 
+    // 简单的Markdown解析函数
+    function parseMarkdown(text) {
+      let html = text;
+      
+      // 转义HTML
+      html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // 代码块
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+      
+      // 行内代码
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      
+      // 粗体
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      
+      // 斜体
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      
+      // 标题
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      
+      // 链接
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+      
+      // 图片
+      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
+      
+      // 列表
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+      html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+      
+      // 分割线
+      html = html.replace(/^---$/gm, '<hr>');
+      
+      // 段落
+      html = html.replace(/\n\n/g, '</p><p>');
+      html = '<p>' + html + '</p>';
+      
+      // 清理
+      html = html.replace(/<p>\s*<\/p>/g, '');
+      html = html.replace(/<p>\s*<pre>/g, '<pre>');
+      html = html.replace(/<\/pre>\s*<\/p>/g, '</pre>');
+      
+      return html;
+    }
+
     // Add message to chat
-    function addAIMessage(content, role) {
+    function addAIMessage(content, role, isMarkdown = false) {
       const div = document.createElement('div');
       div.className = `ai-message ${role}`;
-      div.textContent = content;
+      
+      if (role === 'assistant' && isMarkdown) {
+        div.innerHTML = `<div class="markdown-content">${parseMarkdown(content)}</div>`;
+      } else {
+        div.textContent = content;
+      }
+      
       aiMessages.appendChild(div);
       aiMessages.scrollTop = aiMessages.scrollHeight;
     }
+
+    // 添加加载动画
+    function showAILoading() {
+      const div = document.createElement('div');
+      div.className = 'ai-loading';
+      div.id = 'ai-loading';
+      div.innerHTML = '<span></span><span></span><span></span>';
+      aiMessages.appendChild(div);
+      aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
+
+    // 移除加载动画
+    function removeAILoading() {
+      const loading = document.getElementById('ai-loading');
+      if (loading) {
+        loading.remove();
+      }
+    }
+
+    // 更新消息内容（用于流式输出）
+    function updateLastMessage(content, isMarkdown = false) {
+      const messages = aiMessages.querySelectorAll('.ai-message.assistant');
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg) {
+        if (isMarkdown) {
+          lastMsg.innerHTML = `<div class="markdown-content">${parseMarkdown(content)}</div>`;
+        } else {
+          lastMsg.textContent = content;
+        }
+        aiMessages.scrollTop = aiMessages.scrollHeight;
+      }
+    }
+
+    // 显示提示词模板面板
+    async function showAITemplatesPanel() {
+      const panel = document.getElementById('ai-templates-panel');
+      
+      if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+        return;
+      }
+      
+      // 获取模板列表
+      try {
+        const result = await window.electronAPI.ai.chat.getTemplates();
+        if (result.success) {
+          panel.innerHTML = '';
+          result.templates.forEach(template => {
+            const item = document.createElement('div');
+            item.className = 'ai-template-item';
+            item.textContent = template;
+            item.onclick = () => {
+              aiInput.value = `使用模板 "${template}"`;
+              panel.classList.remove('show');
+            };
+            panel.appendChild(item);
+          });
+        }
+      } catch (e) {
+        console.error('获取模板失败:', e);
+      }
+      
+      panel.classList.add('show');
+    }
+
+    // 显示对话历史
+    async function showAIHistory() {
+      try {
+        const result = await window.electronAPI.ai.chat.getHistory();
+        if (result.success && result.history.length > 0) {
+          let historyText = '对话历史:\n\n';
+          result.history.slice(-10).forEach((msg, i) => {
+            const roleLabel = msg.role === 'user' ? '你' : 'AI';
+            const preview = msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
+            historyText += `${i + 1}. ${roleLabel}: ${preview}\n`;
+          });
+          
+          if (confirm(historyText + '\n\n是否清除历史记录？')) {
+            await window.electronAPI.ai.chat.clearHistory();
+            alert('历史已清除');
+          }
+        } else {
+          alert('暂无对话历史');
+        }
+      } catch (e) {
+        console.error('获取历史失败:', e);
+      }
+    }
+
+    // 绑定模板和历史按钮事件
+    document.getElementById('ai-templates-btn').onclick = showAITemplatesPanel;
+    document.getElementById('ai-history-btn').onclick = showAIHistory;
 
     // Send message to AI
     async function sendAIMessage() {
@@ -2443,6 +3011,91 @@
     aiConfigSave.addEventListener('click', saveAPIKey);
     aiConfigCancel.addEventListener('click', () => {
       aiModal.style.display = 'none';
+    });
+
+    // AI 模板和历史按钮
+    const aiTemplatesBtn = document.getElementById('ai-templates-btn');
+    const aiHistoryBtn = document.getElementById('ai-history-btn');
+    const aiTemplatesPanel = document.getElementById('ai-templates-panel');
+    
+    // 加载提示词模板
+    async function loadTemplates() {
+      try {
+        const result = await window.electronAPI.ai.chat.getTemplates();
+        if (result.success) {
+          aiTemplatesPanel.innerHTML = '';
+          result.templates.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'ai-template-item';
+            item.textContent = name;
+            item.onclick = () => {
+              aiInput.value = `使用模板: ${name}\n`;
+              aiTemplatesPanel.classList.remove('show');
+              aiInput.focus();
+            };
+            aiTemplatesPanel.appendChild(item);
+          });
+        }
+      } catch (e) {
+        console.warn('加载模板失败:', e);
+      }
+    }
+    
+    // 加载并显示历史记录
+    async function loadHistory() {
+      try {
+        const result = await window.electronAPI.ai.chat.getHistory();
+        if (result.success && result.history.length > 0) {
+          const historyText = result.history.slice(-10).map(h => 
+            `${h.role === 'user' ? '👤' : '🤖'}: ${h.content.substring(0, 100)}...`
+          ).join('\n\n');
+          alert(`📜 对话历史 (最近10条):\n\n${historyText}\n\n共 ${result.length} 条消息`);
+        } else {
+          alert('暂无对话历史');
+        }
+      } catch (e) {
+        console.warn('加载历史失败:', e);
+      }
+    }
+    
+    // 清除历史记录
+    async function clearHistory() {
+      if (confirm('确定要清除所有对话历史吗？')) {
+        try {
+          await window.electronAPI.ai.chat.clearHistory();
+          alert('✅ 历史记录已清除');
+        } catch (e) {
+          alert('清除失败: ' + e.message);
+        }
+      }
+    }
+    
+    if (aiTemplatesBtn) {
+      aiTemplatesBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await loadTemplates();
+        aiTemplatesPanel.classList.toggle('show');
+      });
+    }
+    
+    if (aiHistoryBtn) {
+      aiHistoryBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        // 点击历史按钮显示选项菜单
+        const choice = confirm('查看历史记录？\n\n确定: 查看历史\n取消: 清除历史');
+        if (choice) {
+          await loadHistory();
+        } else {
+          await clearHistory();
+        }
+      });
+    }
+    
+    // 点击其他地方关闭模板面板
+    document.addEventListener('click', (e) => {
+      if (aiTemplatesPanel && !aiTemplatesPanel.contains(e.target) && e.target !== aiTemplatesBtn) {
+        aiTemplatesPanel.classList.remove('show');
+      }
     });
 
     aiInput.addEventListener('keydown', (e) => {

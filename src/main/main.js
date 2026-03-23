@@ -10,6 +10,7 @@ const { TerminalManager } = require('./terminal');
 const { DebugManager } = require('./debugger');
 const { GitManager } = require('./git-manager');
 const { ProjectTemplates } = require('./project-templates');
+const { PluginEcosystem } = require('./plugin-ecosystem');
 
 // 禁用 GPU 加速以避免缓存警告
 app.disableHardwareAcceleration();
@@ -1033,4 +1034,198 @@ ipcMain.handle('ai:translate', async (event, { code, fromLang, toLang }) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// ========== AI 聊天增强 IPC (Phase 4.3) ==========
+const { createAIChatEnhancer, MarkdownParser } = require('./ai-chat-enhancement');
+
+let aiChatEnhancer = null;
+
+function getAIChatEnhancer() {
+  if (!aiChatEnhancer) {
+    aiChatEnhancer = createAIChatEnhancer({
+      provider: 'openai',
+      model: 'gpt-4',
+      maxHistoryLength: 50
+    });
+  }
+  return aiChatEnhancer;
+}
+
+// 配置
+ipcMain.handle('aiChat:configure', async (event, config) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    enhancer.configure(config);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 发送消息
+ipcMain.handle('aiChat:send', async (event, { message, context }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    const result = await enhancer.sendMessage(message, context);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 流式发送消息
+ipcMain.handle('aiChat:sendStream', async (event, { message, context }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    
+    // 返回流式响应
+    const result = await enhancer.sendMessageStream(message, (chunk, full) => {
+      // 发送每个chunk到前端
+      event.sender.send('aiChat:streamChunk', { chunk, full });
+    }, context);
+    
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 获取历史记录
+ipcMain.handle('aiChat:getHistory', async () => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    return {
+      success: true,
+      history: enhancer.getHistory(),
+      length: enhancer.getHistoryLength()
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 清除历史记录
+ipcMain.handle('aiChat:clearHistory', async () => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    enhancer.clearHistory();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 获取提示词模板
+ipcMain.handle('aiChat:getTemplates', async () => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    return {
+      success: true,
+      templates: enhancer.getTemplates()
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 使用模板发送消息
+ipcMain.handle('aiChat:sendWithTemplate', async (event, { templateName, params }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    const result = await enhancer.sendWithTemplate(templateName, params);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 添加自定义模板
+ipcMain.handle('aiChat:addTemplate', async (event, { name, template }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    enhancer.addTemplate(name, template);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 删除模板
+ipcMain.handle('aiChat:deleteTemplate', async (event, { name }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    enhancer.deleteTemplate(name);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 导出模板
+ipcMain.handle('aiChat:exportTemplates', async () => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    return {
+      success: true,
+      templates: enhancer.exportTemplates()
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 导入模板
+ipcMain.handle('aiChat:importTemplates', async (event, { jsonString }) => {
+  try {
+    const enhancer = getAIChatEnhancer();
+    enhancer.importTemplates(jsonString);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 4.2 �����̬ϵͳ IPC
+const pluginEcosystem = new PluginEcosystem(app.getPath('userData'));
+
+// ����Ƽ�
+ipcMain.handle('plugins:getRecommended', async (event, { category, limit }) => {
+  return pluginEcosystem.getRecommended(category, limit);
+});
+
+ipcMain.handle('plugins:getCategories', async () => {
+  return pluginEcosystem.getCategories();
+});
+
+// ����ϵͳ
+ipcMain.handle('plugins:getRating', async (event, pluginId) => {
+  return pluginEcosystem.getRating(pluginId);
+});
+
+ipcMain.handle('plugins:setRating', async (event, { pluginId, rating }) => {
+  return pluginEcosystem.setRating(pluginId, rating);
+});
+
+// �汾����
+ipcMain.handle('plugins:getVersion', async (event, pluginId) => {
+  return pluginEcosystem.getVersion(pluginId);
+});
+
+ipcMain.handle('plugins:getVersionHistory', async (event, pluginId) => {
+  return pluginEcosystem.getVersionHistory(pluginId);
+});
+
+ipcMain.handle('plugins:recordVersion', async (event, { pluginId, version }) => {
+  pluginEcosystem.recordVersion(pluginId, version);
+  return { success: true };
+});
+
+ipcMain.handle('plugins:checkConflicts', async (event, plugins) => {
+  return pluginEcosystem.checkConflicts(plugins);
+});
+
+// �ĵ�����
+ipcMain.handle('plugins:generateDocs', async () => {
+  return pluginEcosystem.generateAllDocs();
 });

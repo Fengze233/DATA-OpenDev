@@ -58,7 +58,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     generateTests: (code, language, framework) => 
       ipcRenderer.invoke('ai:generateTests', { code, language, framework }),
     translate: (code, fromLang, toLang) => 
-      ipcRenderer.invoke('ai:translate', { code, fromLang, toLang })
+      ipcRenderer.invoke('ai:translate', { code, fromLang, toLang }),
+    
+    // AI 聊天增强 (Phase 4.3)
+    chat: {
+      configure: (config) => ipcRenderer.invoke('aiChat:configure', config),
+      send: (message, context) => ipcRenderer.invoke('aiChat:send', { message, context }),
+      sendStream: (message, context) => ipcRenderer.invoke('aiChat:sendStream', { message, context }),
+      getHistory: () => ipcRenderer.invoke('aiChat:getHistory'),
+      clearHistory: () => ipcRenderer.invoke('aiChat:clearHistory'),
+      getTemplates: () => ipcRenderer.invoke('aiChat:getTemplates'),
+      sendWithTemplate: (templateName, params) => ipcRenderer.invoke('aiChat:sendWithTemplate', { templateName, params }),
+      addTemplate: (name, template) => ipcRenderer.invoke('aiChat:addTemplate', { name, template }),
+      deleteTemplate: (name) => ipcRenderer.invoke('aiChat:deleteTemplate', { name }),
+      exportTemplates: () => ipcRenderer.invoke('aiChat:exportTemplates'),
+      importTemplates: (jsonString) => ipcRenderer.invoke('aiChat:importTemplates', { jsonString }),
+      // 流式响应监听
+      onStreamChunk: (callback) => {
+        ipcRenderer.on('aiChat:streamChunk', (event, data) => callback(data));
+      },
+      removeStreamListener: () => {
+        ipcRenderer.removeAllListeners('aiChat:streamChunk');
+      }
+    }
   },
 
   // 插件系统
@@ -100,6 +122,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (templateId, projectName, targetDir) => 
       ipcRenderer.invoke('templates:create', { templateId, projectName, targetDir }),
     installDeps: (projectPath) => ipcRenderer.invoke('templates:installDeps', projectPath)
+  },
+
+  // 插件生态系统
+  plugins: {
+    getRecommended: (category, limit) => ipcRenderer.invoke('plugins:getRecommended', { category, limit }),
+    getCategories: () => ipcRenderer.invoke('plugins:getCategories'),
+    getRating: (pluginId) => ipcRenderer.invoke('plugins:getRating', pluginId),
+    setRating: (pluginId, rating) => ipcRenderer.invoke('plugins:setRating', { pluginId, rating }),
+    getVersion: (pluginId) => ipcRenderer.invoke('plugins:getVersion', pluginId),
+    getVersionHistory: (pluginId) => ipcRenderer.invoke('plugins:getVersionHistory', pluginId),
+    recordVersion: (pluginId, version) => ipcRenderer.invoke('plugins:recordVersion', { pluginId, version }),
+    checkConflicts: (plugins) => ipcRenderer.invoke('plugins:checkConflicts', plugins),
+    generateDocs: () => ipcRenderer.invoke('plugins:generateDocs')
   },
 
   // 调试系统
